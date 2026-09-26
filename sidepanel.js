@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     comparison: null,
     currentFilter: 'all',
     pairings: [],
+    sortMode: 'date-desc',
     auth: {
       authenticated: false,
       token: '',
@@ -462,34 +463,100 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function getSortedPairings() {
-    const sortMode = localStorage.getItem('manabox_pairs_sort') || 'date-desc';
+    let sortMode = 'date-desc';
+    if (sortPairsSelect && sortPairsSelect.value) {
+      sortMode = sortPairsSelect.value;
+    } else if (state.sortMode) {
+      sortMode = state.sortMode;
+    } else {
+      try {
+        sortMode = localStorage.getItem('manabox_pairs_sort') || 'date-desc';
+      } catch (e) {
+        sortMode = 'date-desc';
+      }
+    }
+
     const pairsCopy = [...state.pairings];
 
     pairsCopy.sort((a, b) => {
-      if (sortMode === 'name-asc') {
+      // 1. Commander Name sorting
+      if (sortMode === 'cmdr-asc') {
+        const cmdrA = (a.commanderName || a.name || '').trim();
+        const cmdrB = (b.commanderName || b.name || '').trim();
+        const diff = cmdrA.localeCompare(cmdrB, undefined, { numeric: true, sensitivity: 'base' });
+        if (diff !== 0) return diff;
         return (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' });
       }
-      if (sortMode === 'name-desc') {
+      if (sortMode === 'cmdr-desc') {
+        const cmdrA = (a.commanderName || a.name || '').trim();
+        const cmdrB = (b.commanderName || b.name || '').trim();
+        const diff = cmdrB.localeCompare(cmdrA, undefined, { numeric: true, sensitivity: 'base' });
+        if (diff !== 0) return diff;
         return (b.name || '').localeCompare(a.name || '', undefined, { numeric: true, sensitivity: 'base' });
       }
-      if (sortMode === 'date-asc') {
-        return getPairTimestamp(a) - getPairTimestamp(b);
+
+      // 2. Deck Nickname sorting
+      if (sortMode === 'name-asc') {
+        const nameA = (a.name || a.commanderName || '').trim();
+        const nameB = (b.name || b.commanderName || '').trim();
+        const diff = nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+        if (diff !== 0) return diff;
+        return (a.commanderName || '').localeCompare(b.commanderName || '', undefined, { numeric: true, sensitivity: 'base' });
       }
-      // default: 'date-desc'
-      return getPairTimestamp(b) - getPairTimestamp(a);
+      if (sortMode === 'name-desc') {
+        const nameA = (a.name || a.commanderName || '').trim();
+        const nameB = (b.name || b.commanderName || '').trim();
+        const diff = nameB.localeCompare(nameA, undefined, { numeric: true, sensitivity: 'base' });
+        if (diff !== 0) return diff;
+        return (b.commanderName || '').localeCompare(a.commanderName || '', undefined, { numeric: true, sensitivity: 'base' });
+      }
+
+      // 3. Date sorting
+      if (sortMode === 'date-asc') {
+        const timeDiff = getPairTimestamp(a) - getPairTimestamp(b);
+        if (timeDiff !== 0) return timeDiff;
+        return (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' });
+      }
+
+      // default: 'date-desc' (Recent First)
+      const timeDiff = getPairTimestamp(b) - getPairTimestamp(a);
+      if (timeDiff !== 0) return timeDiff;
+      return (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' });
     });
 
     return pairsCopy;
   }
 
-  function setupSortControl() {
-    if (sortPairsSelect) {
-      sortPairsSelect.value = localStorage.getItem('manabox_pairs_sort') || 'date-desc';
-      sortPairsSelect.addEventListener('change', () => {
-        localStorage.setItem('manabox_pairs_sort', sortPairsSelect.value);
-        renderPairings();
-      });
-    }
+  async function setupSortControl() {
+    if (!sortPairsSelect) return;
+
+    let savedSort = 'date-desc';
+    try {
+      savedSort = localStorage.getItem('manabox_pairs_sort') || 'date-desc';
+    } catch (e) {}
+
+    try {
+      const stored = await chrome.storage.local.get('sortMode');
+      if (stored && stored.sortMode) savedSort = stored.sortMode;
+    } catch (e) {}
+
+    state.sortMode = savedSort;
+    sortPairsSelect.value = savedSort;
+
+    const handleSortChange = () => {
+      const mode = sortPairsSelect.value;
+      state.sortMode = mode;
+      try {
+        localStorage.setItem('manabox_pairs_sort', mode);
+      } catch (e) {}
+      try {
+        chrome.storage.local.set({ sortMode: mode });
+      } catch (e) {}
+      renderPairings();
+    };
+
+    sortPairsSelect.addEventListener('change', handleSortChange);
+    sortPairsSelect.addEventListener('input', handleSortChange);
   }
 
   function setupSavedPairsAccordion() {
@@ -2801,7 +2868,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // -----------------------------------------------------------
 
   setupDialogs();
-  setupSortControl();
+  await setupSortControl();
   setupSavedPairsAccordion();
 
   // 1. Immediately load and render existing deck pairs

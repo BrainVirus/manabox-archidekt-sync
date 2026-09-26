@@ -429,6 +429,11 @@ body {
   background: var(--bg-card-hover);
 }
 
+.pairs-sort-select option {
+  background: #1e293b;
+  color: var(--text-main);
+}
+
 .deck-cards-list {
   display: flex;
   flex-direction: column;
