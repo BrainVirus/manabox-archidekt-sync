@@ -57,14 +57,46 @@
         </div>
         <div class="saved-pairs-toolbar" id="savedPairsToolbar">
           <span class="pairs-sort-label">Sort:</span>
-          <select id="sortPairsSelect" class="pairs-sort-select" title="Change sorting order of saved pairs">
-            <option value="date-desc">Recent First</option>
-            <option value="date-asc">Oldest First</option>
-            <option value="name-asc">Deck (A → Z)</option>
-            <option value="name-desc">Deck (Z → A)</option>
-            <option value="cmdr-asc">Commander (A → Z)</option>
-            <option value="cmdr-desc">Commander (Z → A)</option>
-          </select>
+          <div class="custom-sort-dropdown" id="customSortDropdown">
+            <button type="button" class="custom-sort-btn" id="customSortBtn" aria-haspopup="listbox" aria-expanded="false" title="Change sorting order">
+              <span id="customSortLabel">Recent First</span>
+              <span class="custom-sort-arrow">▾</span>
+            </button>
+            <div class="custom-sort-menu" id="customSortMenu" role="listbox">
+              <button type="button" class="custom-sort-item active" data-value="date-desc">
+                <span class="sort-item-text">Recent First</span>
+                <span class="sort-check">✓</span>
+              </button>
+              <button type="button" class="custom-sort-item" data-value="date-asc">
+                <span class="sort-item-text">Oldest First</span>
+                <span class="sort-check"></span>
+              </button>
+              <button type="button" class="custom-sort-item" data-value="name-asc">
+                <span class="sort-item-text">Deck (A → Z)</span>
+                <span class="sort-check"></span>
+              </button>
+              <button type="button" class="custom-sort-item" data-value="name-desc">
+                <span class="sort-item-text">Deck (Z → A)</span>
+                <span class="sort-check"></span>
+              </button>
+              <button type="button" class="custom-sort-item" data-value="cmdr-asc">
+                <span class="sort-item-text">Commander (A → Z)</span>
+                <span class="sort-check"></span>
+              </button>
+              <button type="button" class="custom-sort-item" data-value="cmdr-desc">
+                <span class="sort-item-text">Commander (Z → A)</span>
+                <span class="sort-check"></span>
+              </button>
+            </div>
+            <select id="sortPairsSelect" style="display: none;">
+              <option value="date-desc">Recent First</option>
+              <option value="date-asc">Oldest First</option>
+              <option value="name-asc">Deck (A → Z)</option>
+              <option value="name-desc">Deck (Z → A)</option>
+              <option value="cmdr-asc">Commander (A → Z)</option>
+              <option value="cmdr-desc">Commander (Z → A)</option>
+            </select>
+          </div>
         </div>
       </div>
 

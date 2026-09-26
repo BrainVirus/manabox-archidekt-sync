@@ -434,6 +434,98 @@ body {
   color: var(--text-main);
 }
 
+/* Custom Sort Dropdown (reliable on Linux/Wayland & Chrome sidepanel) */
+.custom-sort-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.custom-sort-btn {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.22rem 0.5rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: inherit;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.custom-sort-btn:hover,
+.custom-sort-dropdown.open .custom-sort-btn {
+  border-color: var(--primary);
+  background: var(--bg-card-hover);
+  color: #fff;
+}
+
+.custom-sort-arrow {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+  pointer-events: none;
+}
+
+.custom-sort-dropdown.open .custom-sort-arrow {
+  transform: rotate(180deg);
+}
+
+.custom-sort-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 170px;
+  background: #182234;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.75);
+  z-index: 500;
+  padding: 0.25rem 0;
+  flex-direction: column;
+}
+
+.custom-sort-dropdown.open .custom-sort-menu {
+  display: flex;
+}
+
+.custom-sort-item {
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  font-size: 0.72rem;
+  padding: 0.35rem 0.65rem;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  transition: background 0.12s ease;
+}
+
+.custom-sort-item:hover {
+  background: rgba(59, 130, 246, 0.18);
+  color: #fff;
+}
+
+.custom-sort-item.active {
+  color: var(--primary);
+  font-weight: 700;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.custom-sort-item .sort-check {
+  font-size: 0.7rem;
+  color: var(--primary);
+}
+
 .deck-cards-list {
   display: flex;
   flex-direction: column;

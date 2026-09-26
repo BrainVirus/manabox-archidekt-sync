@@ -528,7 +528,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function setupSortControl() {
-    if (!sortPairsSelect) return;
+    const customDropdown = document.getElementById('customSortDropdown');
+    const customBtn = document.getElementById('customSortBtn');
+    const customMenu = document.getElementById('customSortMenu');
+    const customLabel = document.getElementById('customSortLabel');
+    const sortItems = customMenu ? customMenu.querySelectorAll('.custom-sort-item') : [];
 
     let savedSort = 'date-desc';
     try {
@@ -540,23 +544,102 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (stored && stored.sortMode) savedSort = stored.sortMode;
     } catch (e) {}
 
-    state.sortMode = savedSort;
-    sortPairsSelect.value = savedSort;
+    const SORT_LABELS = {
+      'date-desc': 'Recent First',
+      'date-asc': 'Oldest First',
+      'name-asc': 'Deck (A → Z)',
+      'name-desc': 'Deck (Z → A)',
+      'cmdr-asc': 'Commander (A → Z)',
+      'cmdr-desc': 'Commander (Z → A)'
+    };
 
-    const handleSortChange = () => {
-      const mode = sortPairsSelect.value;
+    function applySortMode(mode, triggerRender = true) {
       state.sortMode = mode;
+      if (sortPairsSelect) sortPairsSelect.value = mode;
+
+      // Update button label & checkmark in custom menu
+      let foundLabel = '';
+      sortItems.forEach(item => {
+        const isMatch = item.dataset.value === mode;
+        item.classList.toggle('active', isMatch);
+        const check = item.querySelector('.sort-check');
+        if (check) check.textContent = isMatch ? '✓' : '';
+        if (isMatch) {
+          const textSpan = item.querySelector('.sort-item-text') || item.querySelector('span:not(.sort-check)') || item.querySelector('span');
+          foundLabel = textSpan ? textSpan.textContent.trim() : item.textContent.replace('✓', '').trim();
+        }
+      });
+
+      if (customLabel) {
+        customLabel.textContent = foundLabel || SORT_LABELS[mode] || 'Recent First';
+      }
+
       try {
         localStorage.setItem('manabox_pairs_sort', mode);
       } catch (e) {}
       try {
         chrome.storage.local.set({ sortMode: mode });
       } catch (e) {}
-      renderPairings();
-    };
 
-    sortPairsSelect.addEventListener('change', handleSortChange);
-    sortPairsSelect.addEventListener('input', handleSortChange);
+      if (triggerRender) {
+        renderPairings();
+      }
+    }
+
+    // Set initial mode without triggering extra render
+    applySortMode(savedSort, false);
+
+    // Toggle dropdown open/close on button click
+    if (customBtn && customDropdown) {
+      customBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = customDropdown.classList.contains('open');
+        customDropdown.classList.toggle('open', !isOpen);
+        customBtn.setAttribute('aria-expanded', String(!isOpen));
+      });
+    }
+
+    // Handle item selection in custom menu
+    sortItems.forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const mode = item.dataset.value;
+        if (customDropdown) customDropdown.classList.remove('open');
+        if (customBtn) customBtn.setAttribute('aria-expanded', 'false');
+        applySortMode(mode, true);
+      });
+    });
+
+    // Close menu when clicking anywhere outside
+    document.addEventListener('click', (e) => {
+      if (customDropdown && customDropdown.classList.contains('open')) {
+        if (!customDropdown.contains(e.target)) {
+          customDropdown.classList.remove('open');
+          if (customBtn) customBtn.setAttribute('aria-expanded', 'false');
+        }
+      }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && customDropdown && customDropdown.classList.contains('open')) {
+        customDropdown.classList.remove('open');
+        if (customBtn) {
+          customBtn.setAttribute('aria-expanded', 'false');
+          customBtn.focus();
+        }
+      }
+    });
+
+    // Also support fallback select if change event is triggered
+    if (sortPairsSelect) {
+      sortPairsSelect.addEventListener('change', () => {
+        applySortMode(sortPairsSelect.value, true);
+      });
+      sortPairsSelect.addEventListener('input', () => {
+        applySortMode(sortPairsSelect.value, true);
+      });
+    }
   }
 
   function setupSavedPairsAccordion() {
