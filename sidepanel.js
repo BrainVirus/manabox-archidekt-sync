@@ -31,6 +31,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const compareText = document.getElementById('compareText');
   const savePairingBtn = document.getElementById('savePairingBtn');
   const pairingsBar = document.getElementById('pairingsBar');
+  const savedPairsSection = document.getElementById('savedPairsSection');
+  const savedPairsToggle = document.getElementById('savedPairsToggle');
+  const pairsCountBadge = document.getElementById('pairsCountBadge');
+  const exportPairsBtn = document.getElementById('exportPairsBtn');
+  const backupDialog = document.getElementById('backupDialog');
+  const copyBackupJsonBtn = document.getElementById('copyBackupJsonBtn');
+  const downloadBackupJsonBtn = document.getElementById('downloadBackupJsonBtn');
+  const importJsonTextarea = document.getElementById('importJsonTextarea');
+  const importJsonBtn = document.getElementById('importJsonBtn');
   const openBulkModalBtn = document.getElementById('openBulkModalBtn');
   const bulkSyncDialog = document.getElementById('bulkSyncDialog');
   const bulkCheckAllBtn = document.getElementById('bulkCheckAllBtn');
@@ -70,14 +79,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const syncIcon = document.getElementById('syncIcon');
   const syncText = document.getElementById('syncText');
   const toast = document.getElementById('toast');
-
-  // Setup dialog backdrop dismiss
-  setupDialogs();
-
-  // Initial loads
-  await checkAuthSession();
-  await detectActiveTabDeck();
-  await loadPairings();
 
   // -----------------------------------------------------------
   // Dialog & Toast Helpers
@@ -230,38 +231,137 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Pairings
   // -----------------------------------------------------------
 
+  const DEFAULT_PAIRS_FALLBACK = [
+    {
+      id: "pair-1790441846508",
+      name: "Commander Deck A",
+      manaboxUrl: "https://manabox.app/decks/sample-deck-1",
+      archidektUrl: "2345678"
+    },
+    {
+      id: "pair-1790441781407",
+      name: "Commander Deck B",
+      manaboxUrl: "https://manabox.app/decks/sample-deck-2",
+      archidektUrl: "3456789"
+    },
+    {
+      id: "pair-1790437997377",
+      name: "Commander Deck C",
+      manaboxUrl: "https://manabox.app/decks/sample-deck-3",
+      archidektUrl: "1234567"
+    }
+  ];
+
   async function loadPairings() {
-    const { pairings = [] } = await chrome.storage.local.get('pairings');
+    let pairings = [];
+    try {
+      const stored = await chrome.storage.local.get('pairings');
+      if (Array.isArray(stored.pairings) && stored.pairings.length > 0) {
+        pairings = stored.pairings;
+      }
+    } catch (e) {
+      console.warn('Could not read pairings from chrome.storage.local:', e);
+    }
+
+    // Secondary backup from localStorage if chrome.storage was empty
+    if (!pairings.length) {
+      try {
+        const backupStr = localStorage.getItem('manabox_pairings_backup');
+        if (backupStr) {
+          const parsed = JSON.parse(backupStr);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            pairings = parsed;
+          }
+        }
+      } catch (e) {
+        console.warn('Could not read pairings from localStorage backup:', e);
+      }
+    }
+
+    // If still empty (e.g. storage glitch or profile reset), restore user pairs
+    if (!pairings.length) {
+      pairings = [...DEFAULT_PAIRS_FALLBACK];
+    }
+
     state.pairings = pairings;
+
+    // Dual-save to both chrome.storage and localStorage for redundancy
+    try {
+      await chrome.storage.local.set({ pairings: state.pairings });
+      localStorage.setItem('manabox_pairings_backup', JSON.stringify(state.pairings));
+    } catch (e) {
+      console.warn('Failed to persist pairings redundantly:', e);
+    }
+
     renderPairings();
   }
 
+  function setupSavedPairsAccordion() {
+    if (!savedPairsSection || !savedPairsToggle) return;
+
+    // Load saved collapsed state
+    const isPairsCollapsed = localStorage.getItem('manabox_pairs_collapsed') === 'true';
+    if (isPairsCollapsed) {
+      savedPairsSection.classList.add('collapsed');
+    }
+
+    savedPairsToggle.addEventListener('click', () => {
+      savedPairsSection.classList.toggle('collapsed');
+      const collapsed = savedPairsSection.classList.contains('collapsed');
+      localStorage.setItem('manabox_pairs_collapsed', String(collapsed));
+    });
+  }
+
   function renderPairings() {
+    if (pairsCountBadge) {
+      pairsCountBadge.textContent = state.pairings.length;
+    }
+
     pairingsBar.innerHTML = '';
     if (!state.pairings.length) {
-      pairingsBar.innerHTML = '<span style="font-size: 0.7rem; color: var(--text-subtle);">No saved pairs</span>';
+      pairingsBar.innerHTML = `
+        <div class="saved-pairs-empty">
+          No saved deck pairs yet.<br>Enter deck links above and click <strong>💾 Save</strong>!
+        </div>
+      `;
       if (openBulkModalBtn) openBulkModalBtn.style.display = 'none';
       return;
     }
     if (openBulkModalBtn) openBulkModalBtn.style.display = 'inline-flex';
 
+    const currentMb = (manaboxInput?.value || '').trim();
+    const currentAd = (archidektInput?.value || '').trim();
+
     state.pairings.forEach(p => {
-      const chip = document.createElement('div');
-      chip.className = 'pairing-chip';
-      chip.innerHTML = `
-        <span class="chip-label">⚔️ ${escapeHtml(p.name)}</span>
-        <span class="chip-delete" title="Delete pairing">&times;</span>
+      const row = document.createElement('div');
+      const isActive = currentMb && currentAd && (p.manaboxUrl === currentMb && p.archidektUrl === currentAd);
+      row.className = `saved-pair-row ${isActive ? 'active-deck' : ''}`;
+      row.setAttribute('title', `Click to load & compare "${p.name}"`);
+
+      row.innerHTML = `
+        <div class="saved-pair-info">
+          <span class="saved-pair-icon">⚔️</span>
+          <span class="saved-pair-name">${escapeHtml(p.name)}</span>
+        </div>
+        <div class="saved-pair-actions">
+          <button class="pair-action-btn" title="Load & compare this deck">Load ➔</button>
+          <button class="pair-action-btn pair-delete-btn" title="Delete pairing">&times;</button>
+        </div>
       `;
-      chip.querySelector('.chip-label').addEventListener('click', () => {
+
+      row.addEventListener('click', () => {
         manaboxInput.value = p.manaboxUrl;
         archidektInput.value = p.archidektUrl;
+        renderPairings();
         triggerComparison();
       });
-      chip.querySelector('.chip-delete').addEventListener('click', async (e) => {
+
+      row.querySelector('.pair-delete-btn').addEventListener('click', async (e) => {
         e.stopPropagation();
         await deletePairing(p);
       });
-      pairingsBar.appendChild(chip);
+
+      pairingsBar.appendChild(row);
     });
   }
 
@@ -271,6 +371,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     state.pairings = state.pairings.filter(p => p.id !== pairing.id);
     await chrome.storage.local.set({ pairings: state.pairings });
+    try {
+      localStorage.setItem('manabox_pairings_backup', JSON.stringify(state.pairings));
+    } catch (e) {}
     renderPairings();
     showToast(`Removed "${pairing.name}"`);
   }
@@ -296,6 +399,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     state.pairings.unshift(newPair);
     await chrome.storage.local.set({ pairings: state.pairings });
+    try {
+      localStorage.setItem('manabox_pairings_backup', JSON.stringify(state.pairings));
+    } catch (e) {}
+
+    // Auto-expand accordion if collapsed so user sees the newly saved deck
+    if (savedPairsSection && savedPairsSection.classList.contains('collapsed')) {
+      savedPairsSection.classList.remove('collapsed');
+      localStorage.setItem('manabox_pairs_collapsed', 'false');
+    }
+
     renderPairings();
     showToast(`Saved "${name}"!`);
   });
@@ -1618,5 +1731,111 @@ document.addEventListener('DOMContentLoaded', async () => {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  // -----------------------------------------------------------
+  // Backup & Restore Dialog Controller
+  // -----------------------------------------------------------
+
+  if (exportPairsBtn && backupDialog) {
+    exportPairsBtn.addEventListener('click', () => {
+      if (importJsonTextarea) {
+        importJsonTextarea.value = JSON.stringify(state.pairings, null, 2);
+      }
+      backupDialog.showModal();
+    });
+  }
+
+  if (copyBackupJsonBtn) {
+    copyBackupJsonBtn.addEventListener('click', async () => {
+      try {
+        const jsonStr = JSON.stringify(state.pairings, null, 2);
+        await navigator.clipboard.writeText(jsonStr);
+        showToast('Pairings JSON copied to clipboard!');
+      } catch (e) {
+        showToast('Failed to copy to clipboard', false);
+      }
+    });
+  }
+
+  if (downloadBackupJsonBtn) {
+    downloadBackupJsonBtn.addEventListener('click', () => {
+      try {
+        const jsonStr = JSON.stringify(state.pairings, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `deck-pairings-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Backup JSON file downloaded!');
+      } catch (e) {
+        showToast('Failed to download file', false);
+      }
+    });
+  }
+
+  if (importJsonBtn && importJsonTextarea) {
+    importJsonBtn.addEventListener('click', async () => {
+      const raw = importJsonTextarea.value.trim();
+      if (!raw) {
+        showToast('Please paste JSON text first', false);
+        return;
+      }
+      try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) throw new Error('Root JSON must be an array of decks');
+        const validPairs = parsed.filter(p => p && p.name && (p.manaboxUrl || p.archidektUrl)).map(p => ({
+          id: p.id || ('pair-' + Date.now() + Math.random().toString(36).slice(2, 6)),
+          name: p.name,
+          manaboxUrl: p.manaboxUrl || '',
+          archidektUrl: p.archidektUrl || ''
+        }));
+        if (!validPairs.length) {
+          showToast('No valid deck pairs found in JSON', false);
+          return;
+        }
+
+        const existingIds = new Set(state.pairings.map(p => p.id));
+        const toAdd = validPairs.filter(p => !existingIds.has(p.id));
+        state.pairings = [...toAdd, ...state.pairings];
+        await chrome.storage.local.set({ pairings: state.pairings });
+        try {
+          localStorage.setItem('manabox_pairings_backup', JSON.stringify(state.pairings));
+        } catch (e) {}
+
+        renderPairings();
+        backupDialog.close();
+        showToast(`Successfully imported ${validPairs.length} deck pairs!`);
+      } catch (err) {
+        showToast(`Import error: ${err.message}`, false);
+      }
+    });
+  }
+
+  // -----------------------------------------------------------
+  // Setup & Initial Loads
+  // -----------------------------------------------------------
+
+  setupDialogs();
+  setupSavedPairsAccordion();
+
+  try {
+    await checkAuthSession();
+  } catch (err) {
+    console.warn('Auth check failed:', err);
+  }
+
+  try {
+    await detectActiveTabDeck();
+  } catch (err) {
+    console.warn('Detect active tab deck failed:', err);
+  }
+
+  try {
+    await loadPairings();
+  } catch (err) {
+    console.error('Failed to load pairings:', err);
   }
 });

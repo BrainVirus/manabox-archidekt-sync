@@ -72,15 +72,29 @@
         </button>
       </div>
 
-      <!-- Quick Pairs Bar -->
-      <div class="pairings-header" style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; margin-bottom: 0.25rem;">
-        <span style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Saved Pairs</span>
-        <button id="openBulkModalBtn" class="btn btn-outline btn-sm" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;" title="Check and update all saved deck pairs">
-          ⚡ Bulk Check / Sync
-        </button>
-      </div>
-      <div class="pairings-bar" id="pairingsBar">
-        <!-- Rendered by JS -->
+      <!-- Saved Pairs Expandable Section -->
+      <div class="saved-pairs-section" id="savedPairsSection">
+        <div class="saved-pairs-header" id="savedPairsHeader">
+          <div class="saved-pairs-toggle" id="savedPairsToggle" title="Click to collapse / expand saved pairs">
+            <span class="accordion-arrow" id="pairsAccordionArrow">▼</span>
+            <span class="pairs-header-title">Saved Pairs</span>
+            <span class="pairs-count-badge" id="pairsCountBadge">0</span>
+          </div>
+          <div style="display: flex; gap: 0.35rem; align-items: center;">
+            <button id="exportPairsBtn" class="btn btn-outline btn-sm" style="font-size: 0.7rem; padding: 0.2rem 0.45rem;" title="Backup or restore deck pairs">
+              💾 Backup
+            </button>
+            <button id="openBulkModalBtn" class="btn btn-outline btn-sm" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;" title="Check and update all saved deck pairs">
+              ⚡ Bulk Check / Sync
+            </button>
+          </div>
+        </div>
+
+        <div class="saved-pairs-collapse" id="savedPairsCollapse">
+          <div class="saved-pairs-list" id="pairingsBar">
+            <!-- Rendered by JS as clean vertical rows -->
+          </div>
+        </div>
       </div>
     </section>
 
@@ -215,8 +229,49 @@
       </button>
     </div>
   </dialog>
-
-  <!-- Toast Notification -->
+ 
+   <!-- Backup / Restore Modal -->
+   <dialog id="backupDialog" closedby="any" style="width: 92%; max-width: 440px; padding: 1rem; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85); color: var(--text-main);">
+     <div class="dialog-header">
+       <div style="display: flex; align-items: center; gap: 0.5rem;">
+         <span style="font-size: 1.15rem;">💾</span>
+         <div>
+           <h3 style="font-size: 0.95rem; font-weight: 700; margin: 0;">Backup &amp; Restore Decks</h3>
+           <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0;">Export or restore saved deck pairs</p>
+         </div>
+       </div>
+       <button class="close-btn" data-close-dialog title="Close">&times;</button>
+     </div>
+ 
+     <div style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem;">
+       <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">
+         Your deck pairs are preserved in browser storage. You can also export a copy to keep as a backup or paste JSON to restore your pairs anytime.
+       </p>
+ 
+       <div style="display: flex; gap: 0.5rem;">
+         <button id="copyBackupJsonBtn" class="btn btn-outline btn-sm" style="flex: 1; font-size: 0.72rem; padding: 0.35rem 0.5rem;">
+           📋 Copy JSON
+         </button>
+         <button id="downloadBackupJsonBtn" class="btn btn-outline btn-sm" style="flex: 1; font-size: 0.72rem; padding: 0.35rem 0.5rem;">
+           ⬇️ Download File
+         </button>
+       </div>
+ 
+       <div style="border-top: 1px solid var(--border); padding-top: 0.65rem;">
+         <label style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">
+           Import / Restore Pairings:
+         </label>
+         <textarea id="importJsonTextarea" placeholder="Paste pairings JSON here..." style="width: 100%; height: 80px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-main); font-family: monospace; font-size: 0.7rem; padding: 0.4rem; resize: vertical; box-sizing: border-box;"></textarea>
+         <div style="display: flex; justify-content: flex-end; gap: 0.4rem; margin-top: 0.5rem;">
+           <button id="importJsonBtn" class="btn btn-primary btn-sm" style="font-size: 0.72rem; padding: 0.3rem 0.6rem;">
+             📥 Import Pairs
+           </button>
+         </div>
+       </div>
+     </div>
+   </dialog>
+ 
+   <!-- Toast Notification -->
   <div id="toast"></div>
 
   <script src="sidepanel.js"></script>
