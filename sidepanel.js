@@ -29,6 +29,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const topOpenArchidektBtn = document.getElementById('topOpenArchidektBtn');
   const diffOpenArchidektBtn = document.getElementById('diffOpenArchidektBtn');
   const openDeckBtn = document.getElementById('openDeckBtn');
+  const openAddDeckModalBtn = document.getElementById('openAddDeckModalBtn');
+  const addDeckDialog = document.getElementById('addDeckDialog');
+  const newPairNicknameInput = document.getElementById('newPairNicknameInput');
+  const modalSaveAndCompareBtn = document.getElementById('modalSaveAndCompareBtn');
+  const closeDiffBtn = document.getElementById('closeDiffBtn');
+  const diffActiveTitle = document.getElementById('diffActiveTitle');
+  const bulkHeroCount = document.getElementById('bulkHeroCount');
   const compareBtn = document.getElementById('compareBtn');
   const compareIcon = document.getElementById('compareIcon');
   const compareText = document.getElementById('compareText');
@@ -221,23 +228,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Active Tab Deck Detection
   // -----------------------------------------------------------
 
-  useTabDeckBtn.addEventListener('click', async () => {
-    await detectActiveTabDeck(true);
-  });
+  if (useTabDeckBtn) {
+    useTabDeckBtn.addEventListener('click', async () => {
+      await detectActiveTabDeck(true);
+    });
+  }
 
   async function detectActiveTabDeck(showNotice = false) {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab && tab.url) {
-        const match = tab.url.match(/archidekt\.com\/decks\/(\d+)/i);
-        if (match) {
-          archidektInput.value = match[1];
-          if (showNotice) showToast(`Detected Archidekt deck #${match[1]} from tab!`);
+        const adMatch = tab.url.match(/archidekt\.com\/decks\/(\d+)/i);
+        if (adMatch) {
+          archidektInput.value = adMatch[1];
+          if (showNotice) showToast(`Detected Archidekt deck #${adMatch[1]} from tab!`);
+          return;
+        }
+        const mbMatch = tab.url.match(/manabox\.app\/decks\/([a-zA-Z0-9_-]+)/i);
+        if (mbMatch) {
+          manaboxInput.value = `https://manabox.app/decks/${mbMatch[1]}`;
+          if (showNotice) showToast(`Detected ManaBox deck from tab!`);
           return;
         }
       }
       if (showNotice) {
-        showToast('Active tab is not an Archidekt deck page.', false);
+        showToast('Active tab is not a ManaBox or Archidekt deck page.', false);
       }
     } catch (err) {
       console.error(err);
@@ -406,9 +421,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  async function loadAndComparePair(p) {
+    if (manaboxInput) manaboxInput.value = p.manaboxUrl;
+    if (archidektInput) archidektInput.value = p.archidektUrl;
+    if (diffActiveTitle) diffActiveTitle.textContent = `Diff: ${p.name}`;
+    renderPairings();
+    if (diffView) {
+      diffView.classList.add('active');
+      diffView.scrollIntoView({ behavior: 'smooth' });
+    }
+    await triggerComparison();
+  }
+
   function renderPairings() {
     if (pairsCountBadge) {
       pairsCountBadge.textContent = state.pairings.length;
+    }
+    if (bulkHeroCount) {
+      bulkHeroCount.textContent = `${state.pairings.length} ${state.pairings.length === 1 ? 'Deck' : 'Decks'}`;
     }
 
     if (savedPairsToolbar) {
@@ -418,14 +448,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     pairingsBar.innerHTML = '';
     if (!state.pairings.length) {
       pairingsBar.innerHTML = `
-        <div class="saved-pairs-empty">
-          No saved deck pairs yet.<br>Enter deck links above and click <strong>💾 Save</strong>!
+        <div class="saved-pairs-empty" style="padding: 1.5rem 1rem; text-align: center; background: var(--bg-card); border: 1px dashed var(--border); border-radius: var(--radius-md);">
+          <div style="font-size: 1.6rem; margin-bottom: 0.35rem;">⚔️</div>
+          <strong style="color: var(--text-main); font-size: 0.85rem;">No saved deck pairs yet</strong><br>
+          <p style="color: var(--text-muted); font-size: 0.72rem; margin: 0.35rem 0 0.65rem 0;">Click below to pair your first ManaBox and Archidekt decks.</p>
+          <button id="emptyAddDeckBtn" type="button" class="btn btn-primary btn-sm" style="font-size: 0.72rem; padding: 0.35rem 0.75rem;">
+            + Add Your First Deck
+          </button>
         </div>
       `;
-      if (openBulkModalBtn) openBulkModalBtn.style.display = 'none';
+      const emptyAddBtn = document.getElementById('emptyAddDeckBtn');
+      if (emptyAddBtn && openAddDeckModalBtn) {
+        emptyAddBtn.addEventListener('click', () => openAddDeckModalBtn.click());
+      }
       return;
     }
-    if (openBulkModalBtn) openBulkModalBtn.style.display = 'inline-flex';
 
     const currentMb = (manaboxInput?.value || '').trim();
     const currentAd = (archidektInput?.value || '').trim();
@@ -433,41 +470,59 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sortedPairs = getSortedPairings();
 
     sortedPairs.forEach(p => {
-      const row = document.createElement('div');
+      const card = document.createElement('div');
       const isActive = currentMb && currentAd && (p.manaboxUrl === currentMb && p.archidektUrl === currentAd);
-      row.className = `saved-pair-row ${isActive ? 'active-deck' : ''}`;
-      row.setAttribute('title', `Click to load & compare "${p.name}"`);
+      card.className = `deck-card ${isActive ? 'active-deck' : ''}`;
+      card.setAttribute('title', `Click to compare "${p.name}"`);
 
-      row.innerHTML = `
-        <div class="saved-pair-info">
-          <span class="saved-pair-icon">⚔️</span>
-          <span class="saved-pair-name">${escapeHtml(p.name)}</span>
-        </div>
-        <div class="saved-pair-actions">
+      const archidektId = normalizeArchidektDeckId(p.archidektUrl) || p.archidektUrl;
+      const subtitle = `${p.format || 'Commander'} • ID: ${escapeHtml(archidektId)}`;
+
+      card.innerHTML = `
+        <div class="deck-card-top">
+          <div class="deck-card-info">
+            <span class="deck-card-icon">⚔️</span>
+            <div style="min-width: 0;">
+              <div class="deck-card-title-row">
+                <span class="deck-card-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
+              </div>
+              <span class="deck-card-sub" title="${subtitle}">${subtitle}</span>
+            </div>
+          </div>
           <button class="pair-action-btn pair-open-btn" title="Open in Archidekt (new tab)">↗</button>
-          <button class="pair-action-btn" title="Load & compare this deck">Load ➔</button>
-          <button class="pair-action-btn pair-delete-btn" title="Delete pairing">&times;</button>
+        </div>
+
+        <div class="deck-card-bottom">
+          <span class="deck-card-timestamp">Saved</span>
+          <div class="deck-card-actions">
+            <button class="btn btn-primary btn-sm pair-compare-btn" style="font-size: 0.68rem; padding: 0.2rem 0.55rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+              <span>⚡</span> Compare Diff
+            </button>
+            <button class="pair-action-btn pair-delete-btn" title="Delete pairing">&times;</button>
+          </div>
         </div>
       `;
 
-      row.addEventListener('click', () => {
-        manaboxInput.value = p.manaboxUrl;
-        archidektInput.value = p.archidektUrl;
-        renderPairings();
-        triggerComparison();
+      card.addEventListener('click', () => {
+        loadAndComparePair(p);
       });
 
-      row.querySelector('.pair-open-btn').addEventListener('click', (e) => {
+      card.querySelector('.pair-compare-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        loadAndComparePair(p);
+      });
+
+      card.querySelector('.pair-open-btn').addEventListener('click', (e) => {
         e.stopPropagation();
         openArchidektTab(p.archidektUrl);
       });
 
-      row.querySelector('.pair-delete-btn').addEventListener('click', async (e) => {
+      card.querySelector('.pair-delete-btn').addEventListener('click', async (e) => {
         e.stopPropagation();
         await deletePairing(p);
       });
 
-      pairingsBar.appendChild(row);
+      pairingsBar.appendChild(card);
     });
   }
 
@@ -681,6 +736,102 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
           if (confirmSaveNewPairBtn) confirmSaveNewPairBtn.click();
         }
+      }
+    });
+  }
+
+  // -----------------------------------------------------------
+  // Add Deck Modal & Diff Header Handlers
+  // -----------------------------------------------------------
+
+  if (openAddDeckModalBtn) {
+    openAddDeckModalBtn.addEventListener('click', () => {
+      if (manaboxInput) manaboxInput.value = '';
+      if (archidektInput) archidektInput.value = '';
+      if (newPairNicknameInput) newPairNicknameInput.value = '';
+      if (addDeckDialog) {
+        addDeckDialog.showModal();
+        setTimeout(() => {
+          if (manaboxInput) manaboxInput.focus();
+        }, 50);
+      }
+    });
+  }
+
+  if (closeDiffBtn) {
+    closeDiffBtn.addEventListener('click', () => {
+      if (diffView) diffView.classList.remove('active');
+    });
+  }
+
+  if (modalSaveAndCompareBtn) {
+    modalSaveAndCompareBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const mbUrl = (manaboxInput?.value || '').trim();
+      const adUrl = (archidektInput?.value || '').trim();
+      const nickname = (newPairNicknameInput?.value || '').trim();
+
+      if (!mbUrl || !adUrl) {
+        showToast('Please enter both deck links', false);
+        return;
+      }
+
+      const matchResult = findExistingPairing(mbUrl, adUrl);
+      if (matchResult) {
+        pendingSaveContext = {
+          mbUrl,
+          adUrl,
+          existing: matchResult.pair
+        };
+        if (addDeckDialog) addDeckDialog.close();
+
+        if (savePairDupAlert) savePairDupAlert.style.display = 'block';
+        if (savePairModalIcon) savePairModalIcon.textContent = '⚠️';
+        if (savePairModalTitle) savePairModalTitle.textContent = 'Pairing Already Exists';
+        if (savePairModalSubtitle) savePairModalSubtitle.textContent = 'Choose whether to update the nickname or create a new pairing';
+
+        const desc = matchResult.matchType === 'exact'
+          ? 'this deck pair'
+          : (matchResult.matchType === 'manabox' ? 'this ManaBox deck' : 'this Archidekt deck');
+
+        if (savePairDupMessage) {
+          savePairDupMessage.innerHTML = `A saved pairing for <strong>${desc}</strong> already exists as <strong>"${escapeHtml(matchResult.pair.name)}"</strong>.<br>Would you like to update the existing name or save as a new pairing?`;
+        }
+
+        if (savePairNameInput) {
+          savePairNameInput.value = nickname || matchResult.pair.name;
+        }
+
+        if (savePairActionsNew) savePairActionsNew.style.display = 'none';
+        if (savePairActionsDup) savePairActionsDup.style.display = 'flex';
+        if (savePairDialog) savePairDialog.showModal();
+        return;
+      }
+
+      const finalName = nickname || 'Deck Pair';
+      const newPair = {
+        id: 'pair-' + Date.now(),
+        name: finalName,
+        manaboxUrl: mbUrl,
+        archidektUrl: adUrl,
+        createdAt: Date.now()
+      };
+
+      state.pairings.unshift(newPair);
+      await persistPairings();
+      renderPairings();
+      if (addDeckDialog) addDeckDialog.close();
+      showToast(`Added "${finalName}"!`);
+
+      await loadAndComparePair(newPair);
+    });
+  }
+
+  if (newPairNicknameInput) {
+    newPairNicknameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (modalSaveAndCompareBtn) modalSaveAndCompareBtn.click();
       }
     });
   }

@@ -12,106 +12,83 @@
   <header class="app-header">
     <div class="header-top">
       <div class="brand">
-        <div class="brand-icon">⚡</div>
+        <div class="brand-icon">⚔️</div>
         <div class="brand-title">ManaBox ➔ Archidekt</div>
       </div>
-      <button id="authBtn" class="auth-badge" title="Archidekt Connection Status">
-        <span id="authDot" class="auth-dot"></span>
-        <span id="authText">Checking...</span>
-      </button>
+      <div style="display: flex; align-items: center; gap: 0.4rem;">
+        <button id="authBtn" class="auth-badge" title="Archidekt Connection Status">
+          <span id="authDot" class="auth-dot"></span>
+          <span id="authText">Checking...</span>
+        </button>
+        <button id="exportPairsBtn" class="btn btn-outline btn-sm" style="font-size: 0.72rem; padding: 0.25rem 0.45rem;" title="Backup or restore deck pairs">
+          💾
+        </button>
+        <button id="openAddDeckModalBtn" class="btn btn-primary btn-sm" style="font-weight: 600; font-size: 0.75rem; padding: 0.25rem 0.6rem; display: flex; align-items: center; gap: 0.25rem;" title="Pair a new deck">
+          <span>+</span>
+          <span>Add Deck</span>
+        </button>
+      </div>
     </div>
   </header>
 
   <!-- Main Container -->
   <main class="main-container">
 
-    <!-- Inputs Box -->
-    <section class="card-box" id="inputsBox">
-      <div class="box-title">
-        <span>🔄 Select Decks</span>
-        <button id="useTabDeckBtn" class="btn btn-outline btn-sm" title="Detect deck from currently active browser tab">
-          🎯 Current Tab
-        </button>
-      </div>
-
-      <div class="input-group">
-        <label class="input-label" for="manaboxInput">
-          <span>ManaBox Deck</span>
-          <span class="input-helper">Share Link</span>
-        </label>
-        <input
-          type="text"
-          id="manaboxInput"
-          class="input-control"
-          placeholder="https://manabox.app/decks/..."
-        />
-      </div>
-
-      <div class="input-group">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
-          <label class="input-label" for="archidektInput" style="margin-bottom: 0; display: inline-flex; align-items: baseline; gap: 0.45rem;">
-            <span>Target Archidekt Deck</span>
-            <span class="input-helper">URL or ID</span>
-          </label>
-          <button id="topOpenArchidektBtn" class="btn-link" style="font-size: 0.7rem; color: var(--primary); background: none; border: none; cursor: pointer; padding: 0;" title="Open this deck on Archidekt.com">
-            Open in Archidekt ↗
-          </button>
+    <!-- Bulk Hero Card -->
+    <div class="bulk-hero-card">
+      <div class="bulk-hero-info">
+        <div class="bulk-hero-title">
+          <span>⚡ Bulk Sync</span>
+          <span class="pairs-count-badge" id="bulkHeroCount">0 Decks</span>
         </div>
-        <input
-          type="text"
-          id="archidektInput"
-          class="input-control"
-          placeholder="https://archidekt.com/decks/..."
-        />
+        <div class="bulk-hero-desc">Scan all paired decks for updates</div>
+      </div>
+      <button id="openBulkModalBtn" class="btn btn-outline btn-sm" style="font-size: 0.72rem; padding: 0.3rem 0.65rem;" title="Check and update all saved deck pairs">
+        <span>🔄</span> Check All
+      </button>
+    </div>
+
+    <!-- Centerstage Decks Section -->
+    <section class="decks-section" id="decksSection">
+      <div class="decks-section-header">
+        <div class="decks-header-left">
+          <span class="decks-section-title">Your Decks</span>
+          <span class="pairs-count-badge" id="pairsCountBadge">0</span>
+        </div>
+        <div class="saved-pairs-toolbar" id="savedPairsToolbar">
+          <span class="pairs-sort-label">Sort:</span>
+          <select id="sortPairsSelect" class="pairs-sort-select" title="Change sorting order of saved pairs">
+            <option value="date-desc">Recent First</option>
+            <option value="date-asc">Oldest First</option>
+            <option value="name-asc">Name (A → Z)</option>
+            <option value="name-desc">Name (Z → A)</option>
+          </select>
+        </div>
       </div>
 
-      <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-        <button id="compareBtn" class="btn btn-primary btn-block">
-          <span id="compareIcon">⚡</span>
-          <span id="compareText">Compare Decks</span>
-        </button>
-        <button id="savePairingBtn" class="btn btn-outline btn-sm" title="Save this deck pairing">
-          💾 Save
-        </button>
-      </div>
-
-      <!-- Saved Pairs Expandable Section -->
-      <div class="saved-pairs-section" id="savedPairsSection">
-        <div class="saved-pairs-header" id="savedPairsHeader">
-          <div class="saved-pairs-toggle" id="savedPairsToggle" title="Click to collapse / expand saved pairs">
-            <span class="accordion-arrow" id="pairsAccordionArrow">▼</span>
-            <span class="pairs-header-title">Saved Pairs</span>
-            <span class="pairs-count-badge" id="pairsCountBadge">0</span>
-          </div>
-          <div style="display: flex; gap: 0.35rem; align-items: center;">
-            <button id="exportPairsBtn" class="btn btn-outline btn-sm" style="font-size: 0.7rem; padding: 0.2rem 0.45rem;" title="Backup or restore deck pairs">
-              💾 Backup
-            </button>
-            <button id="openBulkModalBtn" class="btn btn-outline btn-sm" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;" title="Check and update all saved deck pairs">
-              ⚡ Bulk Check / Sync
-            </button>
-          </div>
-        </div>
-
-        <div class="saved-pairs-collapse" id="savedPairsCollapse">
-          <div class="saved-pairs-toolbar" id="savedPairsToolbar">
-            <span class="pairs-sort-label">Sort:</span>
-            <select id="sortPairsSelect" class="pairs-sort-select" title="Change sorting order of saved pairs">
-              <option value="date-desc">Creation Date (Newest)</option>
-              <option value="date-asc">Creation Date (Oldest)</option>
-              <option value="name-asc">Alphabetical (A → Z)</option>
-              <option value="name-desc">Alphabetical (Z → A)</option>
-            </select>
-          </div>
-          <div class="saved-pairs-list" id="pairingsBar">
-            <!-- Rendered by JS as clean vertical rows -->
-          </div>
-        </div>
+      <!-- Scrollable Deck Cards List -->
+      <div class="deck-cards-list" id="pairingsBar">
+        <!-- Rendered by JS as rich cards -->
       </div>
     </section>
 
     <!-- Visual Diff View (Shown after compare) -->
     <section class="diff-view" id="diffView">
+      <div class="diff-section-header">
+        <div class="diff-header-left">
+          <span class="diff-pulse-dot"></span>
+          <span class="diff-section-title" id="diffActiveTitle">Diff: Deck Comparison</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.4rem;">
+          <button id="compareBtn" class="btn btn-outline btn-sm" style="font-size: 0.65rem; padding: 0.15rem 0.45rem;" title="Re-check diffs between ManaBox and Archidekt">
+            <span id="compareIcon">⚡</span>
+            <span id="compareText">Re-check</span>
+          </button>
+          <button id="closeDiffBtn" class="btn-link" style="font-size: 0.72rem; color: var(--text-muted); cursor: pointer;" title="Close comparison view">
+            ✕ Close
+          </button>
+        </div>
+      </div>
       
       <!-- Mini Decks Overview -->
       <div class="decks-bar">
@@ -290,6 +267,83 @@
              📥 Import Pairs
            </button>
          </div>
+       </div>
+     </div>
+   </dialog>
+
+   <!-- Add Deck Dialog (Modal) -->
+   <dialog id="addDeckDialog" closedby="any" style="width: 92%; max-width: 420px; padding: 1.1rem; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85); color: var(--text-main);">
+     <div class="dialog-header">
+       <div style="display: flex; align-items: center; gap: 0.5rem;">
+         <span style="font-size: 1.15rem;">➕</span>
+         <div>
+           <h3 style="font-size: 0.95rem; font-weight: 700; margin: 0;">Add Deck Pairing</h3>
+           <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0;">Link a ManaBox deck to an Archidekt deck</p>
+         </div>
+       </div>
+       <button class="close-btn" data-close-dialog title="Close">&times;</button>
+     </div>
+
+     <div style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem;">
+       <!-- ManaBox Input with Current Tab shortcut -->
+       <div class="input-group" style="margin-bottom: 0;">
+         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+           <label class="input-label" for="manaboxInput" style="margin-bottom: 0;">ManaBox Deck</label>
+           <button id="useTabDeckBtn" type="button" class="btn btn-outline btn-sm" style="font-size: 0.68rem; padding: 0.15rem 0.45rem;" title="Detect deck from currently active browser tab">
+             🎯 Use Current Tab
+           </button>
+         </div>
+         <input
+           type="text"
+           id="manaboxInput"
+           class="input-control"
+           placeholder="https://manabox.app/decks/..."
+           autocomplete="off"
+         />
+       </div>
+
+       <!-- Archidekt Input -->
+       <div class="input-group" style="margin-bottom: 0;">
+         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+           <label class="input-label" for="archidektInput" style="margin-bottom: 0; display: inline-flex; align-items: baseline; gap: 0.45rem;">
+             <span>Target Archidekt Deck</span>
+             <span class="input-helper">URL or ID</span>
+           </label>
+           <button id="topOpenArchidektBtn" type="button" class="btn-link" style="font-size: 0.7rem; color: var(--primary); background: none; border: none; cursor: pointer; padding: 0;" title="Open this deck on Archidekt.com">
+             Open in Archidekt ↗
+           </button>
+         </div>
+         <input
+           type="text"
+           id="archidektInput"
+           class="input-control"
+           placeholder="https://archidekt.com/decks/... or ID"
+           autocomplete="off"
+         />
+       </div>
+
+       <!-- Nickname Input -->
+       <div>
+         <label class="input-label" for="newPairNicknameInput" style="margin-bottom: 0.25rem;">
+           <span>Pairing Nickname</span>
+         </label>
+         <input
+           type="text"
+           id="newPairNicknameInput"
+           class="input-control"
+           placeholder="e.g. Commander Deck A"
+           autocomplete="off"
+         />
+       </div>
+
+       <!-- Action buttons -->
+       <div style="display: flex; gap: 0.4rem; justify-content: flex-end; margin-top: 0.35rem;">
+         <button type="button" class="btn btn-outline btn-sm" data-close-dialog style="font-size: 0.75rem; padding: 0.35rem 0.65rem;">
+           Cancel
+         </button>
+         <button type="button" id="modalSaveAndCompareBtn" class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;">
+           ⚡ Save &amp; Compare
+         </button>
        </div>
      </div>
    </dialog>
