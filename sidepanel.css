@@ -328,7 +328,7 @@ body {
 }
 
 .saved-pairs-collapse {
-  max-height: 240px;
+  max-height: 320px;
   opacity: 1;
   transition: max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease, margin 0.2s ease;
   overflow: hidden;
@@ -339,6 +339,42 @@ body {
   max-height: 0;
   opacity: 0;
   margin-top: 0;
+}
+
+.saved-pairs-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+  padding: 0 0.15rem;
+}
+
+.pairs-sort-label {
+  font-size: 0.65rem;
+  color: var(--text-subtle);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pairs-sort-select {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-size: 0.68rem;
+  padding: 0.2rem 0.4rem;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.pairs-sort-select:hover,
+.pairs-sort-select:focus {
+  border-color: var(--primary);
+  background: var(--bg-card-hover);
 }
 
 .saved-pairs-list {

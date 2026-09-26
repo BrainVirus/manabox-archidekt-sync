@@ -96,6 +96,15 @@
         </div>
 
         <div class="saved-pairs-collapse" id="savedPairsCollapse">
+          <div class="saved-pairs-toolbar" id="savedPairsToolbar">
+            <span class="pairs-sort-label">Sort:</span>
+            <select id="sortPairsSelect" class="pairs-sort-select" title="Change sorting order of saved pairs">
+              <option value="date-desc">Creation Date (Newest)</option>
+              <option value="date-asc">Creation Date (Oldest)</option>
+              <option value="name-asc">Alphabetical (A → Z)</option>
+              <option value="name-desc">Alphabetical (Z → A)</option>
+            </select>
+          </div>
           <div class="saved-pairs-list" id="pairingsBar">
             <!-- Rendered by JS as clean vertical rows -->
           </div>
@@ -283,6 +292,71 @@
              📥 Import Pairs
            </button>
          </div>
+       </div>
+     </div>
+   </dialog>
+
+   <!-- Save Deck Pairing / Duplicate Check Dialog -->
+   <dialog id="savePairDialog" closedby="any" style="width: 92%; max-width: 420px; padding: 1rem; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85); color: var(--text-main);">
+     <div class="dialog-header">
+       <div style="display: flex; align-items: center; gap: 0.5rem;">
+         <span style="font-size: 1.15rem;" id="savePairModalIcon">💾</span>
+         <div>
+           <h3 style="font-size: 0.95rem; font-weight: 700; margin: 0;" id="savePairModalTitle">Save Deck Pairing</h3>
+           <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0;" id="savePairModalSubtitle">Store this pair for 1-click loading and bulk sync</p>
+         </div>
+       </div>
+       <button class="close-btn" data-close-dialog title="Close">&times;</button>
+     </div>
+
+     <div style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem;">
+       <!-- Duplicate Warning Banner (shown when pairing already exists) -->
+       <div id="savePairDupAlert" style="display: none; background: rgba(245, 158, 11, 0.12); border: 1px solid var(--warning); border-radius: var(--radius-sm); padding: 0.55rem 0.65rem; font-size: 0.73rem; color: var(--text-main);">
+         <div style="font-weight: 700; color: var(--warning); margin-bottom: 0.2rem; display: flex; align-items: center; gap: 0.35rem;">
+           <span>⚠️</span>
+           <span>Pairing Already Exists</span>
+         </div>
+         <div id="savePairDupMessage" style="color: var(--text-main); line-height: 1.35;">
+           A saved pairing matching this deck already exists.
+         </div>
+       </div>
+
+       <div>
+         <label class="input-label" for="savePairNameInput" style="margin-bottom: 0.25rem;">
+           <span>Pairing Nickname</span>
+         </label>
+         <input
+           type="text"
+           id="savePairNameInput"
+           class="input-control"
+           placeholder="e.g. Commander Deck A"
+           autocomplete="off"
+         />
+       </div>
+
+       <!-- Action buttons when it's a NEW pairing -->
+       <div id="savePairActionsNew" style="display: flex; gap: 0.4rem; justify-content: flex-end; margin-top: 0.25rem;">
+         <button type="button" class="btn btn-outline btn-sm" data-close-dialog style="font-size: 0.75rem; padding: 0.35rem 0.65rem;">
+           Cancel
+         </button>
+         <button type="button" id="confirmSaveNewPairBtn" class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;">
+           💾 Save Pairing
+         </button>
+       </div>
+
+       <!-- Action buttons when DUPLICATE is detected -->
+       <div id="savePairActionsDup" style="display: none; flex-direction: column; gap: 0.5rem; margin-top: 0.25rem;">
+         <div style="display: flex; gap: 0.4rem;">
+           <button type="button" id="updatePairNameBtn" class="btn btn-primary btn-sm" style="flex: 1; font-size: 0.75rem; padding: 0.45rem 0.5rem;" title="Update the nickname of the existing pairing without duplicating it">
+             ✏️ Update Name
+           </button>
+           <button type="button" id="createNewPairBtn" class="btn btn-outline btn-sm" style="flex: 1; font-size: 0.75rem; padding: 0.45rem 0.5rem;" title="Keep existing pairing and save this as an additional pairing">
+             ➕ Create New Pairing
+           </button>
+         </div>
+         <button type="button" class="btn-link" data-close-dialog style="font-size: 0.72rem; align-self: center; color: var(--text-subtle); background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0.2rem;">
+           Cancel
+         </button>
        </div>
      </div>
    </dialog>

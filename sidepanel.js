@@ -36,8 +36,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   const pairingsBar = document.getElementById('pairingsBar');
   const savedPairsSection = document.getElementById('savedPairsSection');
   const savedPairsToggle = document.getElementById('savedPairsToggle');
+  const savedPairsToolbar = document.getElementById('savedPairsToolbar');
+  const sortPairsSelect = document.getElementById('sortPairsSelect');
   const pairsCountBadge = document.getElementById('pairsCountBadge');
   const exportPairsBtn = document.getElementById('exportPairsBtn');
+  const savePairDialog = document.getElementById('savePairDialog');
+  const savePairModalIcon = document.getElementById('savePairModalIcon');
+  const savePairModalTitle = document.getElementById('savePairModalTitle');
+  const savePairModalSubtitle = document.getElementById('savePairModalSubtitle');
+  const savePairDupAlert = document.getElementById('savePairDupAlert');
+  const savePairDupMessage = document.getElementById('savePairDupMessage');
+  const savePairNameInput = document.getElementById('savePairNameInput');
+  const savePairActionsNew = document.getElementById('savePairActionsNew');
+  const savePairActionsDup = document.getElementById('savePairActionsDup');
+  const confirmSaveNewPairBtn = document.getElementById('confirmSaveNewPairBtn');
+  const updatePairNameBtn = document.getElementById('updatePairNameBtn');
+  const createNewPairBtn = document.getElementById('createNewPairBtn');
   const backupDialog = document.getElementById('backupDialog');
   const copyBackupJsonBtn = document.getElementById('copyBackupJsonBtn');
   const downloadBackupJsonBtn = document.getElementById('downloadBackupJsonBtn');
@@ -324,16 +338,48 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     state.pairings = pairings;
+    await persistPairings();
+    renderPairings();
+  }
 
-    // Dual-save to both chrome.storage and localStorage for redundancy
+  async function persistPairings() {
     try {
       await chrome.storage.local.set({ pairings: state.pairings });
       localStorage.setItem('manabox_pairings_backup', JSON.stringify(state.pairings));
     } catch (e) {
-      console.warn('Failed to persist pairings redundantly:', e);
+      console.warn('Failed to persist pairings:', e);
     }
+  }
 
-    renderPairings();
+  function getPairTimestamp(pair) {
+    if (typeof pair.createdAt === 'number') return pair.createdAt;
+    const match = pair.id && String(pair.id).match(/\d+/);
+    if (match) {
+      const parsed = parseInt(match[0], 10);
+      if (!isNaN(parsed) && parsed > 1600000000000) return parsed;
+    }
+    return 0;
+  }
+
+  function getSortedPairings() {
+    const sortMode = localStorage.getItem('manabox_pairs_sort') || 'date-desc';
+    const pairsCopy = [...state.pairings];
+
+    pairsCopy.sort((a, b) => {
+      if (sortMode === 'name-asc') {
+        return (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' });
+      }
+      if (sortMode === 'name-desc') {
+        return (b.name || '').localeCompare(a.name || '', undefined, { numeric: true, sensitivity: 'base' });
+      }
+      if (sortMode === 'date-asc') {
+        return getPairTimestamp(a) - getPairTimestamp(b);
+      }
+      // default: 'date-desc'
+      return getPairTimestamp(b) - getPairTimestamp(a);
+    });
+
+    return pairsCopy;
   }
 
   function setupSavedPairsAccordion() {
@@ -350,11 +396,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       const collapsed = savedPairsSection.classList.contains('collapsed');
       localStorage.setItem('manabox_pairs_collapsed', String(collapsed));
     });
+
+    if (sortPairsSelect) {
+      sortPairsSelect.value = localStorage.getItem('manabox_pairs_sort') || 'date-desc';
+      sortPairsSelect.addEventListener('change', () => {
+        localStorage.setItem('manabox_pairs_sort', sortPairsSelect.value);
+        renderPairings();
+      });
+    }
   }
 
   function renderPairings() {
     if (pairsCountBadge) {
       pairsCountBadge.textContent = state.pairings.length;
+    }
+
+    if (savedPairsToolbar) {
+      savedPairsToolbar.style.display = state.pairings.length > 0 ? 'flex' : 'none';
     }
 
     pairingsBar.innerHTML = '';
@@ -372,7 +430,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const currentMb = (manaboxInput?.value || '').trim();
     const currentAd = (archidektInput?.value || '').trim();
 
-    state.pairings.forEach(p => {
+    const sortedPairs = getSortedPairings();
+
+    sortedPairs.forEach(p => {
       const row = document.createElement('div');
       const isActive = currentMb && currentAd && (p.manaboxUrl === currentMb && p.archidektUrl === currentAd);
       row.className = `saved-pair-row ${isActive ? 'active-deck' : ''}`;
@@ -416,15 +476,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!ok) return;
 
     state.pairings = state.pairings.filter(p => p.id !== pairing.id);
-    await chrome.storage.local.set({ pairings: state.pairings });
-    try {
-      localStorage.setItem('manabox_pairings_backup', JSON.stringify(state.pairings));
-    } catch (e) {}
+    await persistPairings();
     renderPairings();
     showToast(`Removed "${pairing.name}"`);
   }
 
-  savePairingBtn.addEventListener('click', async () => {
+  function findExistingPairing(mbInput, adInput) {
+    const normMb = normalizeManaBoxUrl(mbInput) || (mbInput ? mbInput.trim() : '');
+    const normAdId = normalizeArchidektDeckId(adInput);
+
+    // 1. Exact match (both ManaBox & Archidekt match)
+    const exact = state.pairings.find(p => {
+      const pMb = normalizeManaBoxUrl(p.manaboxUrl) || (p.manaboxUrl ? p.manaboxUrl.trim() : '');
+      const pAd = normalizeArchidektDeckId(p.archidektUrl);
+      return (normMb && pMb === normMb) && (normAdId && pAd === normAdId);
+    });
+    if (exact) return { pair: exact, matchType: 'exact' };
+
+    // 2. Matching ManaBox deck
+    if (normMb) {
+      const mbMatch = state.pairings.find(p => {
+        const pMb = normalizeManaBoxUrl(p.manaboxUrl) || (p.manaboxUrl ? p.manaboxUrl.trim() : '');
+        return pMb === normMb;
+      });
+      if (mbMatch) return { pair: mbMatch, matchType: 'manabox' };
+    }
+
+    // 3. Matching Archidekt deck
+    if (normAdId) {
+      const adMatch = state.pairings.find(p => {
+        const pAd = normalizeArchidektDeckId(p.archidektUrl);
+        return pAd === normAdId;
+      });
+      if (adMatch) return { pair: adMatch, matchType: 'archidekt' };
+    }
+
+    return null;
+  }
+
+  let pendingSaveContext = null;
+
+  savePairingBtn.addEventListener('click', () => {
     const mbUrl = manaboxInput.value.trim();
     const adUrl = archidektInput.value.trim();
     if (!mbUrl || !adUrl) {
@@ -432,32 +524,166 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    const defaultName = state.comparison ? state.comparison.manabox.name : 'Deck Pair';
-    const name = prompt('Enter a nickname for this deck pairing:', defaultName);
-    if (!name) return;
-
-    const newPair = {
-      id: 'pair-' + Date.now(),
-      name,
-      manaboxUrl: mbUrl,
-      archidektUrl: adUrl
+    const matchResult = findExistingPairing(mbUrl, adUrl);
+    pendingSaveContext = {
+      mbUrl,
+      adUrl,
+      existing: matchResult ? matchResult.pair : null
     };
 
-    state.pairings.unshift(newPair);
-    await chrome.storage.local.set({ pairings: state.pairings });
-    try {
-      localStorage.setItem('manabox_pairings_backup', JSON.stringify(state.pairings));
-    } catch (e) {}
+    if (matchResult) {
+      // DUPLICATE DETECTED
+      if (savePairDupAlert) savePairDupAlert.style.display = 'block';
+      if (savePairModalIcon) savePairModalIcon.textContent = '⚠️';
+      if (savePairModalTitle) savePairModalTitle.textContent = 'Pairing Already Exists';
+      if (savePairModalSubtitle) savePairModalSubtitle.textContent = 'Choose whether to update the nickname or create a new pairing';
 
-    // Auto-expand accordion if collapsed so user sees the newly saved deck
-    if (savedPairsSection && savedPairsSection.classList.contains('collapsed')) {
-      savedPairsSection.classList.remove('collapsed');
-      localStorage.setItem('manabox_pairs_collapsed', 'false');
+      const desc = matchResult.matchType === 'exact'
+        ? 'this deck pair'
+        : (matchResult.matchType === 'manabox' ? 'this ManaBox deck' : 'this Archidekt deck');
+
+      if (savePairDupMessage) {
+        savePairDupMessage.innerHTML = `A saved pairing for <strong>${desc}</strong> already exists as <strong>"${escapeHtml(matchResult.pair.name)}"</strong>.<br>Would you like to update the existing name or save as a new pairing?`;
+      }
+
+      if (savePairNameInput) {
+        savePairNameInput.value = matchResult.pair.name;
+      }
+
+      if (savePairActionsNew) savePairActionsNew.style.display = 'none';
+      if (savePairActionsDup) savePairActionsDup.style.display = 'flex';
+    } else {
+      // BRAND NEW PAIRING
+      if (savePairDupAlert) savePairDupAlert.style.display = 'none';
+      if (savePairModalIcon) savePairModalIcon.textContent = '💾';
+      if (savePairModalTitle) savePairModalTitle.textContent = 'Save Deck Pairing';
+      if (savePairModalSubtitle) savePairModalSubtitle.textContent = 'Store this pair for 1-click loading and bulk sync';
+
+      const defaultName = state.comparison ? state.comparison.manabox.name : 'Deck Pair';
+      if (savePairNameInput) {
+        savePairNameInput.value = defaultName;
+      }
+
+      if (savePairActionsNew) savePairActionsNew.style.display = 'flex';
+      if (savePairActionsDup) savePairActionsDup.style.display = 'none';
     }
 
-    renderPairings();
-    showToast(`Saved "${name}"!`);
+    if (savePairDialog) {
+      savePairDialog.showModal();
+      setTimeout(() => {
+        if (savePairNameInput) {
+          savePairNameInput.focus();
+          savePairNameInput.select();
+        }
+      }, 50);
+    }
   });
+
+  // Action: Save New Pairing (from New view)
+  if (confirmSaveNewPairBtn) {
+    confirmSaveNewPairBtn.addEventListener('click', async () => {
+      if (!pendingSaveContext) return;
+      const name = (savePairNameInput?.value || '').trim();
+      if (!name) {
+        showToast('Please enter a nickname for this pairing', false);
+        return;
+      }
+
+      const newPair = {
+        id: 'pair-' + Date.now(),
+        name,
+        manaboxUrl: pendingSaveContext.mbUrl,
+        archidektUrl: pendingSaveContext.adUrl,
+        createdAt: Date.now()
+      };
+
+      state.pairings.unshift(newPair);
+      await persistPairings();
+
+      if (savedPairsSection && savedPairsSection.classList.contains('collapsed')) {
+        savedPairsSection.classList.remove('collapsed');
+        localStorage.setItem('manabox_pairs_collapsed', 'false');
+      }
+
+      renderPairings();
+      if (savePairDialog) savePairDialog.close();
+      showToast(`Saved "${name}"!`);
+    });
+  }
+
+  // Action: Update Existing Pairing Name
+  if (updatePairNameBtn) {
+    updatePairNameBtn.addEventListener('click', async () => {
+      if (!pendingSaveContext || !pendingSaveContext.existing) return;
+      const name = (savePairNameInput?.value || '').trim();
+      if (!name) {
+        showToast('Please enter a nickname for this pairing', false);
+        return;
+      }
+
+      const existing = pendingSaveContext.existing;
+      existing.name = name;
+      existing.manaboxUrl = pendingSaveContext.mbUrl;
+      existing.archidektUrl = pendingSaveContext.adUrl;
+
+      await persistPairings();
+
+      if (savedPairsSection && savedPairsSection.classList.contains('collapsed')) {
+        savedPairsSection.classList.remove('collapsed');
+        localStorage.setItem('manabox_pairs_collapsed', 'false');
+      }
+
+      renderPairings();
+      if (savePairDialog) savePairDialog.close();
+      showToast(`Updated "${name}"!`);
+    });
+  }
+
+  // Action: Create New Pairing (from Duplicate view)
+  if (createNewPairBtn) {
+    createNewPairBtn.addEventListener('click', async () => {
+      if (!pendingSaveContext) return;
+      const name = (savePairNameInput?.value || '').trim();
+      if (!name) {
+        showToast('Please enter a nickname for this pairing', false);
+        return;
+      }
+
+      const newPair = {
+        id: 'pair-' + Date.now(),
+        name,
+        manaboxUrl: pendingSaveContext.mbUrl,
+        archidektUrl: pendingSaveContext.adUrl,
+        createdAt: Date.now()
+      };
+
+      state.pairings.unshift(newPair);
+      await persistPairings();
+
+      if (savedPairsSection && savedPairsSection.classList.contains('collapsed')) {
+        savedPairsSection.classList.remove('collapsed');
+        localStorage.setItem('manabox_pairs_collapsed', 'false');
+      }
+
+      renderPairings();
+      if (savePairDialog) savePairDialog.close();
+      showToast(`Saved new pairing "${name}"!`);
+    });
+  }
+
+  // Handle Enter key inside savePairNameInput
+  if (savePairNameInput) {
+    savePairNameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (pendingSaveContext && pendingSaveContext.existing) {
+          if (updatePairNameBtn) updatePairNameBtn.click();
+        } else {
+          if (confirmSaveNewPairBtn) confirmSaveNewPairBtn.click();
+        }
+      }
+    });
+  }
 
   // -----------------------------------------------------------
   // Bulk Deck Check & Sync Controller
@@ -475,7 +701,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    bulkState.pairs = state.pairings.map(p => ({
+    bulkState.pairs = getSortedPairings().map(p => ({
       ...p,
       status: 'idle',
       comparison: null,
@@ -1976,7 +2202,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           id: p.id || ('pair-' + Date.now() + Math.random().toString(36).slice(2, 6)),
           name: p.name,
           manaboxUrl: p.manaboxUrl || '',
-          archidektUrl: p.archidektUrl || ''
+          archidektUrl: p.archidektUrl || '',
+          createdAt: typeof p.createdAt === 'number' ? p.createdAt : undefined
         }));
         if (!validPairs.length) {
           showToast('No valid deck pairs found in JSON', false);
@@ -1986,10 +2213,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const existingIds = new Set(state.pairings.map(p => p.id));
         const toAdd = validPairs.filter(p => !existingIds.has(p.id));
         state.pairings = [...toAdd, ...state.pairings];
-        await chrome.storage.local.set({ pairings: state.pairings });
-        try {
-          localStorage.setItem('manabox_pairings_backup', JSON.stringify(state.pairings));
-        } catch (e) {}
+        await persistPairings();
 
         renderPairings();
         backupDialog.close();
