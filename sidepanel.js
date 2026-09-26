@@ -26,8 +26,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const useTabDeckBtn = document.getElementById('useTabDeckBtn');
   const manaboxInput = document.getElementById('manaboxInput');
   const archidektInput = document.getElementById('archidektInput');
+  const topOpenManaboxBtn = document.getElementById('topOpenManaboxBtn');
   const topOpenArchidektBtn = document.getElementById('topOpenArchidektBtn');
+  const diffOpenManaboxBtn = document.getElementById('diffOpenManaboxBtn');
   const diffOpenArchidektBtn = document.getElementById('diffOpenArchidektBtn');
+  const openManaboxBtn = document.getElementById('openManaboxBtn');
   const openDeckBtn = document.getElementById('openDeckBtn');
   const openAddDeckModalBtn = document.getElementById('openAddDeckModalBtn');
   const addDeckDialog = document.getElementById('addDeckDialog');
@@ -274,11 +277,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // -----------------------------------------------------------
-  // Open Deck in Archidekt Helper
+  // Open Deck Link Helpers (ManaBox & Archidekt)
   // -----------------------------------------------------------
 
+  async function openManaBoxTab(input) {
+    const raw = input || (manaboxInput ? manaboxInput.value : '');
+    if (!raw) {
+      showToast('Enter a ManaBox link first', false);
+      return;
+    }
+    const normalized = normalizeManaBoxUrl(raw);
+    const url = normalized || (raw.startsWith('http') ? raw : `https://${raw}`);
+    try {
+      await chrome.tabs.create({ url });
+    } catch (e) {
+      window.open(url, '_blank');
+    }
+  }
+
   async function openArchidektTab(input) {
-    const raw = input || archidektInput.value;
+    const raw = input || (archidektInput ? archidektInput.value : '');
     const deckId = normalizeArchidektDeckId(raw);
     if (!deckId) {
       showToast('Enter an Archidekt link or ID first', false);
@@ -292,20 +310,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  if (topOpenManaboxBtn) {
+    topOpenManaboxBtn.addEventListener('click', () => openManaBoxTab());
+  }
+
   if (topOpenArchidektBtn) {
     topOpenArchidektBtn.addEventListener('click', () => openArchidektTab());
   }
 
+  if (diffOpenManaboxBtn) {
+    diffOpenManaboxBtn.addEventListener('click', () => {
+      const url = state.comparison?.manabox?.url || (manaboxInput ? manaboxInput.value : '');
+      openManaBoxTab(url);
+    });
+  }
+
   if (diffOpenArchidektBtn) {
     diffOpenArchidektBtn.addEventListener('click', () => {
-      const id = state.comparison?.archidekt?.id || archidektInput.value;
+      const id = state.comparison?.archidekt?.id || (archidektInput ? archidektInput.value : '');
       openArchidektTab(id);
+    });
+  }
+
+  if (openManaboxBtn) {
+    openManaboxBtn.addEventListener('click', () => {
+      const url = state.comparison?.manabox?.url || (manaboxInput ? manaboxInput.value : '');
+      openManaBoxTab(url);
     });
   }
 
   if (openDeckBtn) {
     openDeckBtn.addEventListener('click', () => {
-      const id = state.comparison?.archidekt?.id || archidektInput.value;
+      const id = state.comparison?.archidekt?.id || (archidektInput ? archidektInput.value : '');
       openArchidektTab(id);
     });
   }
@@ -505,7 +541,10 @@ document.addEventListener('DOMContentLoaded', async () => {
               <span class="deck-card-sub" title="${subtitle}">${subtitle}</span>
             </div>
           </div>
-          <button class="pair-action-btn pair-open-btn" title="Open in Archidekt (new tab)">↗</button>
+          <div class="deck-card-links">
+            <button class="pair-action-btn pair-open-mb-btn" title="Open in ManaBox (new tab)">ManaBox ↗</button>
+            <button class="pair-action-btn pair-open-ad-btn pair-open-btn" title="Open in Archidekt (new tab)">Archidekt ↗</button>
+          </div>
         </div>
 
         <div class="deck-card-bottom">
@@ -528,10 +567,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         loadAndComparePair(p);
       });
 
-      card.querySelector('.pair-open-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        openArchidektTab(p.archidektUrl);
-      });
+      const openMbBtn = card.querySelector('.pair-open-mb-btn');
+      if (openMbBtn) {
+        openMbBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openManaBoxTab(p.manaboxUrl);
+        });
+      }
+
+      const openAdBtn = card.querySelector('.pair-open-ad-btn') || card.querySelector('.pair-open-btn');
+      if (openAdBtn) {
+        openAdBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openArchidektTab(p.archidektUrl);
+        });
+      }
 
       card.querySelector('.pair-delete-btn').addEventListener('click', async (e) => {
         e.stopPropagation();
@@ -1367,6 +1417,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     return {
+      url,
       name: rawDeck.name || 'ManaBox Deck',
       format: rawDeck.format || 'Commander',
       totalCards: cards.reduce((sum, c) => sum + c.quantity, 0),

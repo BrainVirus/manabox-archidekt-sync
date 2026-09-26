@@ -93,7 +93,12 @@
       <!-- Mini Decks Overview -->
       <div class="decks-bar">
         <div class="deck-mini">
-          <span class="deck-mini-name" id="mbName">ManaBox Deck</span>
+          <div style="display: flex; align-items: center; gap: 0.35rem;">
+            <span class="deck-mini-name" id="mbName">ManaBox Deck</span>
+            <button id="diffOpenManaboxBtn" class="btn btn-outline btn-sm" style="font-size: 0.62rem; padding: 0.1rem 0.35rem; line-height: 1; border-color: var(--border);" title="Open deck in ManaBox">
+              ↗
+            </button>
+          </div>
           <span class="deck-mini-meta" id="mbMeta">Commander • 100 cards</span>
         </div>
         <div style="font-size: 0.8rem; color: var(--primary); font-weight: 700;">➔</div>
@@ -150,14 +155,18 @@
       </div>
 
       <!-- Primary Sync Action -->
-      <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+      <div style="display: flex; gap: 0.4rem; margin-top: 0.5rem;">
         <button id="applySyncBtn" class="btn btn-success" style="flex: 1; padding: 0.75rem;">
           <span id="syncIcon">🚀</span>
           <span id="syncText">Sync to Archidekt</span>
         </button>
-        <button id="openDeckBtn" class="btn btn-outline" style="padding: 0.75rem 0.85rem; font-size: 0.8rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.35rem;" title="Open deck in Archidekt (new tab)">
+        <button id="openManaboxBtn" class="btn btn-outline" style="padding: 0.75rem 0.65rem; font-size: 0.78rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.3rem;" title="Open deck in ManaBox (new tab)">
           <span>↗</span>
-          <span>Open Deck</span>
+          <span>ManaBox</span>
+        </button>
+        <button id="openDeckBtn" class="btn btn-outline" style="padding: 0.75rem 0.65rem; font-size: 0.78rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.3rem;" title="Open deck in Archidekt (new tab)">
+          <span>↗</span>
+          <span>Archidekt</span>
         </button>
       </div>
     </section>
@@ -289,9 +298,14 @@
        <div class="input-group" style="margin-bottom: 0;">
          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
            <label class="input-label" for="manaboxInput" style="margin-bottom: 0;">ManaBox Deck</label>
-           <button id="useTabDeckBtn" type="button" class="btn btn-outline btn-sm" style="font-size: 0.68rem; padding: 0.15rem 0.45rem;" title="Detect deck from currently active browser tab">
-             🎯 Use Current Tab
-           </button>
+           <div style="display: flex; align-items: center; gap: 0.35rem;">
+             <button id="topOpenManaboxBtn" type="button" class="btn-link" style="font-size: 0.7rem; color: var(--primary); background: none; border: none; cursor: pointer; padding: 0;" title="Open this deck on ManaBox.app">
+               Open in ManaBox ↗
+             </button>
+             <button id="useTabDeckBtn" type="button" class="btn btn-outline btn-sm" style="font-size: 0.68rem; padding: 0.15rem 0.45rem;" title="Detect deck from currently active browser tab">
+               🎯 Use Current Tab
+             </button>
+           </div>
          </div>
          <input
            type="text"

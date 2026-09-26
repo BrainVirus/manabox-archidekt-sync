@@ -465,6 +465,26 @@ body {
   gap: 0.4rem;
 }
 
+.deck-card-links {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.deck-card-links .pair-action-btn {
+  font-size: 0.64rem;
+  font-weight: 500;
+  padding: 0.16rem 0.38rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
 .deck-card-info {
   display: flex;
   align-items: center;
@@ -621,9 +641,17 @@ body {
   color: var(--text-main);
 }
 
+.pair-open-mb-btn:hover {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.pair-open-ad-btn:hover,
 .pair-open-btn:hover {
   color: var(--primary);
   background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.4);
 }
 
 .pair-delete-btn {
