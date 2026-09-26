@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ManaBox ➔ Archidekt Sync</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-top">
+      <div class="brand">
+        <div class="brand-icon">⚡</div>
+        <div class="brand-title">ManaBox ➔ Archidekt</div>
+      </div>
+      <button id="authBtn" class="auth-badge" title="Archidekt Connection Status">
+        <span id="authDot" class="auth-dot"></span>
+        <span id="authText">Checking...</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+
+    <!-- Inputs Box -->
+    <section class="card-box" id="inputsBox">
+      <div class="box-title">
+        <span>🔄 Select Decks</span>
+        <button id="useTabDeckBtn" class="btn btn-outline btn-sm" title="Detect deck from currently active browser tab">
+          🎯 Current Tab
+        </button>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label" for="manaboxInput">
+          <span>ManaBox Deck</span>
+          <span class="input-helper">Share Link</span>
+        </label>
+        <input
+          type="text"
+          id="manaboxInput"
+          class="input-control"
+          placeholder="https://manabox.app/decks/..."
+          value="https://manabox.app/decks/sample-deck-0"
+        />
+      </div>
+
+      <div class="input-group">
+        <label class="input-label" for="archidektInput">
+          <span>Target Archidekt Deck</span>
+          <span class="input-helper">URL or ID</span>
+        </label>
+        <input
+          type="text"
+          id="archidektInput"
+          class="input-control"
+          placeholder="https://archidekt.com/decks/..."
+          value="https://archidekt.com/decks/4000"
+        />
+      </div>
+
+      <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+        <button id="compareBtn" class="btn btn-primary btn-block">
+          <span id="compareIcon">⚡</span>
+          <span id="compareText">Compare Decks</span>
+        </button>
+        <button id="savePairingBtn" class="btn btn-outline btn-sm" title="Save this deck pairing">
+          💾 Save
+        </button>
+      </div>
+
+      <!-- Quick Pairs Bar -->
+      <div class="pairings-header" style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; margin-bottom: 0.25rem;">
+        <span style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Saved Pairs</span>
+        <button id="openBulkModalBtn" class="btn btn-outline btn-sm" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;" title="Check and update all saved deck pairs">
+          ⚡ Bulk Check / Sync
+        </button>
+      </div>
+      <div class="pairings-bar" id="pairingsBar">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- Visual Diff View (Shown after compare) -->
+    <section class="diff-view" id="diffView">
+      
+      <!-- Mini Decks Overview -->
+      <div class="decks-bar">
+        <div class="deck-mini">
+          <span class="deck-mini-name" id="mbName">ManaBox Deck</span>
+          <span class="deck-mini-meta" id="mbMeta">Commander • 100 cards</span>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--primary); font-weight: 700;">➔</div>
+        <div class="deck-mini" style="text-align: right;">
+          <span class="deck-mini-name" id="adName">Archidekt Deck</span>
+          <span class="deck-mini-meta" id="adMeta">by Owner</span>
+        </div>
+      </div>
+
+      <!-- Stats Ribbon -->
+      <div class="stats-ribbon">
+        <div class="stat-item" style="border-bottom: 2px solid var(--success);">
+          <div class="stat-val" id="statAdded" style="color: var(--success);">+0</div>
+          <div class="stat-lbl">Add</div>
+        </div>
+        <div class="stat-item" style="border-bottom: 2px solid var(--danger);">
+          <div class="stat-val" id="statRemoved" style="color: var(--danger);">-0</div>
+          <div class="stat-lbl">Remove</div>
+        </div>
+        <div class="stat-item" style="border-bottom: 2px solid var(--warning);">
+          <div class="stat-val" id="statModified" style="color: var(--warning);">~0</div>
+          <div class="stat-lbl">Modify</div>
+        </div>
+        <div class="stat-item" style="border-bottom: 2px solid var(--primary);">
+          <div class="stat-val" id="statSynced" style="color: var(--primary);">=0</div>
+          <div class="stat-lbl">Synced</div>
+        </div>
+      </div>
+
+      <!-- Filter Tabs -->
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-filter="all">All (<span id="countAll">0</span>)</button>
+        <button class="filter-tab" data-filter="add">Add (<span id="countAdd">0</span>)</button>
+        <button class="filter-tab" data-filter="remove">Remove (<span id="countRemove">0</span>)</button>
+        <button class="filter-tab" data-filter="modify">Modify (<span id="countModify">0</span>)</button>
+        <button class="filter-tab" data-filter="sync">Synced (<span id="countSync">0</span>)</button>
+      </div>
+
+      <!-- Actions Bar -->
+      <div style="display: flex; gap: 0.4rem; align-items: center;">
+        <button id="selectAllBtn" class="btn btn-outline btn-sm">Select All</button>
+        <button id="deselectAllBtn" class="btn btn-outline btn-sm">Deselect</button>
+        <button id="copyMassEditBtn" class="btn btn-outline btn-sm" title="Copy Mass Edit text to clipboard">📋 Copy</button>
+      </div>
+
+      <!-- Changes List -->
+      <div class="changes-list" id="changesList">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Primary Sync Action -->
+      <button id="applySyncBtn" class="btn btn-success btn-block" style="padding: 0.75rem;">
+        <span id="syncIcon">🚀</span>
+        <span id="syncText">Sync to Archidekt</span>
+      </button>
+    </section>
+
+  </main>
+
+  <!-- Auth Dialog -->
+  <dialog id="authDialog" closedby="any">
+    <div class="dialog-header">
+      <h3 style="font-size: 0.95rem;">Archidekt Session</h3>
+      <button class="close-btn" data-close-dialog>&times;</button>
+    </div>
+    <div id="authStatusBox" style="padding: 0.5rem; background: var(--bg-surface); border-radius: 4px; margin-bottom: 0.75rem; font-size: 0.75rem;">
+      Checking cookies...
+    </div>
+    <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+      If you are logged into Archidekt in Chrome, the extension detects your session automatically.
+    </p>
+    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+      <a href="https://archidekt.com/login" target="_blank" class="btn btn-outline btn-sm btn-block">
+        Open Archidekt.com to Log In
+      </a>
+      <button id="refreshAuthBtn" class="btn btn-primary btn-sm btn-block">
+        Re-check Browser Session
+      </button>
+    </div>
+  </dialog>
+
+  <!-- Bulk Sync Dialog -->
+  <dialog id="bulkSyncDialog" closedby="any" class="bulk-modal">
+    <div class="dialog-header">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 1.15rem;">⚡</span>
+        <div>
+          <h3 style="font-size: 0.95rem; font-weight: 700; margin: 0;">Bulk Deck Sync</h3>
+          <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0;">Check & update all saved deck pairs</p>
+        </div>
+      </div>
+      <button class="close-btn" data-close-dialog title="Close">&times;</button>
+    </div>
+
+    <!-- Bulk Toolbar -->
+    <div class="bulk-toolbar">
+      <button id="bulkCheckAllBtn" class="btn btn-outline btn-sm" title="Re-check diffs for all saved pairs">
+        <span id="bulkCheckIcon">🔄</span>
+        <span id="bulkCheckText">Check All</span>
+      </button>
+      <div style="display: flex; gap: 0.35rem; align-items: center;">
+        <button id="bulkSelectAllBtn" class="btn btn-outline btn-sm" style="font-size: 0.7rem; padding: 0.25rem 0.45rem;">Select All</button>
+        <button id="bulkDeselectBtn" class="btn btn-outline btn-sm" style="font-size: 0.7rem; padding: 0.25rem 0.45rem;">None</button>
+      </div>
+    </div>
+
+    <!-- Status / Progress Banner -->
+    <div id="bulkStatusBanner" class="bulk-status-banner">
+      Click "Check All" to scan all saved decks for updates.
+    </div>
+
+    <!-- Scrollable Pairs List -->
+    <div id="bulkPairsList" class="bulk-pairs-list">
+      <!-- Rendered by JS -->
+    </div>
+
+    <!-- Action Footer -->
+    <div class="bulk-footer">
+      <button id="bulkSyncSelectedBtn" class="btn btn-success btn-block" disabled style="padding: 0.65rem;">
+        <span id="bulkSyncIcon">🚀</span>
+        <span id="bulkSyncText">Sync Selected Decks</span>
+      </button>
+    </div>
+  </dialog>
+
+  <!-- Toast Notification -->
+  <div id="toast"></div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>
