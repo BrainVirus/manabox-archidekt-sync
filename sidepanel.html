@@ -79,10 +79,13 @@
           <span class="diff-pulse-dot"></span>
           <span class="diff-section-title" id="diffActiveTitle">Diff: Deck Comparison</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 0.4rem;">
+        <div style="display: flex; align-items: center; gap: 0.35rem;">
           <button id="compareBtn" class="btn btn-outline btn-sm" style="font-size: 0.65rem; padding: 0.15rem 0.45rem;" title="Re-check diffs between ManaBox and Archidekt">
             <span id="compareIcon">⚡</span>
             <span id="compareText">Re-check</span>
+          </button>
+          <button id="diffEditPairBtn" class="btn btn-outline btn-sm" style="font-size: 0.65rem; padding: 0.15rem 0.45rem; display: inline-flex; align-items: center; gap: 0.2rem;" title="Edit this deck pairing's URLs or nickname">
+            <span>✏️ Edit</span>
           </button>
           <button id="closeDiffBtn" class="btn-link" style="font-size: 0.72rem; color: var(--text-muted); cursor: pointer;" title="Close comparison view">
             ✕ Close
@@ -426,7 +429,102 @@
        </div>
      </div>
    </dialog>
- 
+
+   <!-- Edit Deck Pairing Modal -->
+   <dialog id="editPairDialog" closedby="any" style="width: 92%; max-width: 420px; padding: 1.1rem; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85); color: var(--text-main);">
+     <div class="dialog-header">
+       <div style="display: flex; align-items: center; gap: 0.5rem;">
+         <span style="font-size: 1.15rem;">✏️</span>
+         <div>
+           <h3 style="font-size: 0.95rem; font-weight: 700; margin: 0;">Edit Deck Pairing</h3>
+           <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0;">Update deck nickname, ManaBox URL, or Archidekt URL</p>
+         </div>
+       </div>
+       <button class="close-btn" data-close-dialog title="Close">&times;</button>
+     </div>
+
+     <div style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem;">
+       <!-- Hidden pair ID -->
+       <input type="hidden" id="editPairIdInput" />
+
+       <!-- Nickname Input -->
+       <div>
+         <label class="input-label" for="editPairNameInput" style="margin-bottom: 0.25rem;">
+           <span>Pairing Nickname</span>
+         </label>
+         <input
+           type="text"
+           id="editPairNameInput"
+           class="input-control"
+           placeholder="e.g. Commander Deck A"
+           autocomplete="off"
+         />
+       </div>
+
+       <!-- ManaBox Input -->
+       <div class="input-group" style="margin-bottom: 0;">
+         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+           <label class="input-label" for="editPairMbInput" style="margin-bottom: 0;">ManaBox Deck Link</label>
+           <div style="display: flex; align-items: center; gap: 0.35rem;">
+             <button id="editOpenManaboxBtn" type="button" class="btn-link" style="font-size: 0.7rem; color: var(--primary); background: none; border: none; cursor: pointer; padding: 0;" title="Open this deck on ManaBox.app">
+               Open ↗
+             </button>
+             <button id="editUseTabDeckMbBtn" type="button" class="btn btn-outline btn-sm" style="font-size: 0.65rem; padding: 0.1rem 0.35rem;" title="Fill with deck link from active tab">
+               🎯 Use Tab
+             </button>
+           </div>
+         </div>
+         <input
+           type="text"
+           id="editPairMbInput"
+           class="input-control"
+           placeholder="https://manabox.app/decks/..."
+           autocomplete="off"
+         />
+       </div>
+
+       <!-- Archidekt Input -->
+       <div class="input-group" style="margin-bottom: 0;">
+         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+           <label class="input-label" for="editPairAdInput" style="margin-bottom: 0; display: inline-flex; align-items: baseline; gap: 0.45rem;">
+             <span>Target Archidekt Deck</span>
+             <span class="input-helper">URL or ID</span>
+           </label>
+           <div style="display: flex; align-items: center; gap: 0.35rem;">
+             <button id="editOpenArchidektBtn" type="button" class="btn-link" style="font-size: 0.7rem; color: var(--primary); background: none; border: none; cursor: pointer; padding: 0;" title="Open this deck on Archidekt.com">
+               Open ↗
+             </button>
+             <button id="editUseTabDeckAdBtn" type="button" class="btn btn-outline btn-sm" style="font-size: 0.65rem; padding: 0.1rem 0.35rem;" title="Fill with deck link from active tab">
+               🎯 Use Tab
+             </button>
+           </div>
+         </div>
+         <input
+           type="text"
+           id="editPairAdInput"
+           class="input-control"
+           placeholder="https://archidekt.com/decks/... or ID"
+           autocomplete="off"
+         />
+       </div>
+
+       <!-- Action buttons -->
+       <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.35rem;">
+         <button type="button" id="editDeletePairBtn" class="btn-link" style="font-size: 0.75rem; color: var(--danger); background: none; border: none; cursor: pointer; padding: 0.2rem 0;" title="Delete this deck pairing">
+           🗑️ Delete
+         </button>
+         <div style="display: flex; gap: 0.4rem;">
+           <button type="button" class="btn btn-outline btn-sm" data-close-dialog style="font-size: 0.75rem; padding: 0.35rem 0.65rem;">
+             Cancel
+           </button>
+           <button type="button" id="confirmSaveEditPairBtn" class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;">
+             💾 Save Changes
+           </button>
+         </div>
+       </div>
+     </div>
+   </dialog>
+
    <!-- Toast Notification -->
   <div id="toast"></div>
 

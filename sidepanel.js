@@ -38,6 +38,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   const modalSaveAndCompareBtn = document.getElementById('modalSaveAndCompareBtn');
   const closeDiffBtn = document.getElementById('closeDiffBtn');
   const diffActiveTitle = document.getElementById('diffActiveTitle');
+  const diffEditPairBtn = document.getElementById('diffEditPairBtn');
+  const editPairDialog = document.getElementById('editPairDialog');
+  const editPairIdInput = document.getElementById('editPairIdInput');
+  const editPairNameInput = document.getElementById('editPairNameInput');
+  const editPairMbInput = document.getElementById('editPairMbInput');
+  const editOpenManaboxBtn = document.getElementById('editOpenManaboxBtn');
+  const editUseTabDeckMbBtn = document.getElementById('editUseTabDeckMbBtn');
+  const editPairAdInput = document.getElementById('editPairAdInput');
+  const editOpenArchidektBtn = document.getElementById('editOpenArchidektBtn');
+  const editUseTabDeckAdBtn = document.getElementById('editUseTabDeckAdBtn');
+  const editDeletePairBtn = document.getElementById('editDeletePairBtn');
+  const confirmSaveEditPairBtn = document.getElementById('confirmSaveEditPairBtn');
   const bulkHeroCount = document.getElementById('bulkHeroCount');
   const compareBtn = document.getElementById('compareBtn');
   const compareIcon = document.getElementById('compareIcon');
@@ -553,6 +565,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             <button class="btn btn-primary btn-sm pair-compare-btn" style="font-size: 0.68rem; padding: 0.2rem 0.55rem; display: inline-flex; align-items: center; gap: 0.25rem;">
               <span>⚡</span> Compare Diff
             </button>
+            <button class="btn btn-outline btn-sm pair-edit-btn" style="font-size: 0.68rem; padding: 0.2rem 0.45rem; display: inline-flex; align-items: center; gap: 0.2rem;" title="Edit deck pairing">
+              <span>✏️</span> Edit
+            </button>
             <button class="pair-action-btn pair-delete-btn" title="Delete pairing">&times;</button>
           </div>
         </div>
@@ -566,6 +581,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.stopPropagation();
         loadAndComparePair(p);
       });
+
+      const editBtn = card.querySelector('.pair-edit-btn');
+      if (editBtn) {
+        editBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openEditPairDialog(p);
+        });
+      }
 
       const openMbBtn = card.querySelector('.pair-open-mb-btn');
       if (openMbBtn) {
@@ -903,6 +926,181 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
+
+  // -----------------------------------------------------------
+  // Edit Deck Pairing Controller
+  // -----------------------------------------------------------
+
+  function openEditPairDialog(pairing) {
+    if (!pairing || !editPairDialog) return;
+    if (editPairIdInput) editPairIdInput.value = pairing.id || '';
+    if (editPairNameInput) editPairNameInput.value = pairing.name || '';
+    if (editPairMbInput) editPairMbInput.value = pairing.manaboxUrl || '';
+    if (editPairAdInput) editPairAdInput.value = pairing.archidektUrl || '';
+    editPairDialog.showModal();
+    setTimeout(() => {
+      if (editPairNameInput) {
+        editPairNameInput.focus();
+        editPairNameInput.select();
+      }
+    }, 50);
+  }
+
+  if (diffEditPairBtn) {
+    diffEditPairBtn.addEventListener('click', () => {
+      const curMb = (manaboxInput?.value || '').trim();
+      const curAd = (archidektInput?.value || '').trim();
+      const normCurMb = normalizeManaBoxUrl(curMb) || curMb;
+      const normCurAd = normalizeArchidektDeckId(curAd) || curAd;
+
+      const matched = state.pairings.find(p => {
+        const pMb = normalizeManaBoxUrl(p.manaboxUrl) || p.manaboxUrl;
+        const pAd = normalizeArchidektDeckId(p.archidektUrl) || p.archidektUrl;
+        return (pMb && pMb === normCurMb) || (pAd && pAd === normCurAd);
+      });
+
+      if (matched) {
+        openEditPairDialog(matched);
+      } else {
+        openEditPairDialog({
+          id: '',
+          name: state.comparison?.manabox?.name || 'Deck Pair',
+          manaboxUrl: curMb,
+          archidektUrl: curAd
+        });
+      }
+    });
+  }
+
+  if (editOpenManaboxBtn) {
+    editOpenManaboxBtn.addEventListener('click', () => {
+      const url = editPairMbInput?.value;
+      openManaBoxTab(url);
+    });
+  }
+
+  if (editOpenArchidektBtn) {
+    editOpenArchidektBtn.addEventListener('click', () => {
+      const url = editPairAdInput?.value;
+      openArchidektTab(url);
+    });
+  }
+
+  if (editUseTabDeckMbBtn) {
+    editUseTabDeckMbBtn.addEventListener('click', async () => {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab && tab.url) {
+          const mbMatch = tab.url.match(/manabox\.app\/decks\/([a-zA-Z0-9_-]+)/i);
+          if (mbMatch && editPairMbInput) {
+            editPairMbInput.value = `https://manabox.app/decks/${mbMatch[1]}`;
+            showToast('Detected ManaBox deck from tab!');
+            return;
+          }
+        }
+        showToast('Active tab is not a ManaBox deck page', false);
+      } catch (e) {
+        console.error(e);
+      }
+    });
+  }
+
+  if (editUseTabDeckAdBtn) {
+    editUseTabDeckAdBtn.addEventListener('click', async () => {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab && tab.url) {
+          const adMatch = tab.url.match(/archidekt\.com\/decks\/(\d+)/i);
+          if (adMatch && editPairAdInput) {
+            editPairAdInput.value = adMatch[1];
+            showToast(`Detected Archidekt deck #${adMatch[1]} from tab!`);
+            return;
+          }
+        }
+        showToast('Active tab is not an Archidekt deck page', false);
+      } catch (e) {
+        console.error(e);
+      }
+    });
+  }
+
+  if (editDeletePairBtn) {
+    editDeletePairBtn.addEventListener('click', async () => {
+      const pairId = editPairIdInput ? editPairIdInput.value : '';
+      const pair = state.pairings.find(p => p.id === pairId);
+      if (!pair) {
+        if (editPairDialog) editPairDialog.close();
+        return;
+      }
+      if (editPairDialog) editPairDialog.close();
+      await deletePairing(pair);
+    });
+  }
+
+  if (confirmSaveEditPairBtn) {
+    confirmSaveEditPairBtn.addEventListener('click', async () => {
+      const pairId = editPairIdInput ? editPairIdInput.value : '';
+      const name = (editPairNameInput?.value || '').trim();
+      const mbUrl = (editPairMbInput?.value || '').trim();
+      const adUrl = (editPairAdInput?.value || '').trim();
+
+      if (!name) {
+        showToast('Please enter a nickname for this pairing', false);
+        return;
+      }
+      if (!mbUrl || !adUrl) {
+        showToast('Please provide both ManaBox and Archidekt links', false);
+        return;
+      }
+
+      let pair = state.pairings.find(p => p.id === pairId);
+      if (pair) {
+        const prevMb = pair.manaboxUrl;
+        const prevAd = pair.archidektUrl;
+
+        pair.name = name;
+        pair.manaboxUrl = mbUrl;
+        pair.archidektUrl = adUrl;
+
+        // If currently loaded in diff inputs, update them
+        if (manaboxInput && manaboxInput.value === prevMb) {
+          manaboxInput.value = mbUrl;
+        }
+        if (archidektInput && archidektInput.value === prevAd) {
+          archidektInput.value = adUrl;
+        }
+        if (diffActiveTitle && diffActiveTitle.textContent.includes(pair.name)) {
+          diffActiveTitle.textContent = `Diff: ${pair.name}`;
+        }
+      } else {
+        // Create new pair if not existing
+        pair = {
+          id: 'pair-' + Date.now(),
+          name,
+          manaboxUrl: mbUrl,
+          archidektUrl: adUrl,
+          createdAt: Date.now()
+        };
+        state.pairings.unshift(pair);
+      }
+
+      await persistPairings();
+      renderPairings();
+      if (editPairDialog) editPairDialog.close();
+      showToast(`Updated "${name}"!`);
+    });
+  }
+
+  [editPairNameInput, editPairMbInput, editPairAdInput].forEach(inp => {
+    if (inp) {
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (confirmSaveEditPairBtn) confirmSaveEditPairBtn.click();
+        }
+      });
+    }
+  });
 
   // -----------------------------------------------------------
   // Bulk Deck Check & Sync Controller

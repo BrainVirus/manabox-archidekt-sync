@@ -654,6 +654,21 @@ body {
   border-color: rgba(59, 130, 246, 0.4);
 }
 
+.pair-edit-btn {
+  font-size: 0.68rem;
+  padding: 0.18rem 0.45rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  line-height: 1.2;
+}
+
+.pair-edit-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(59, 130, 246, 0.12);
+}
+
 .pair-delete-btn {
   color: var(--text-subtle);
   font-size: 0.95rem;
