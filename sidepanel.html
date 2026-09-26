@@ -49,10 +49,15 @@
       </div>
 
       <div class="input-group">
-        <label class="input-label" for="archidektInput">
-          <span>Target Archidekt Deck</span>
-          <span class="input-helper">URL or ID</span>
-        </label>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+          <label class="input-label" for="archidektInput" style="margin-bottom: 0;">
+            <span>Target Archidekt Deck</span>
+            <span class="input-helper">URL or ID</span>
+          </label>
+          <button id="topOpenArchidektBtn" class="btn-link" style="font-size: 0.7rem; color: var(--primary); background: none; border: none; cursor: pointer; padding: 0;" title="Open this deck on Archidekt.com">
+            Open in Archidekt ↗
+          </button>
+        </div>
         <input
           type="text"
           id="archidektInput"
@@ -109,7 +114,12 @@
         </div>
         <div style="font-size: 0.8rem; color: var(--primary); font-weight: 700;">➔</div>
         <div class="deck-mini" style="text-align: right;">
-          <span class="deck-mini-name" id="adName">Archidekt Deck</span>
+          <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.35rem;">
+            <span class="deck-mini-name" id="adName">Archidekt Deck</span>
+            <button id="diffOpenArchidektBtn" class="btn btn-outline btn-sm" style="font-size: 0.62rem; padding: 0.1rem 0.35rem; line-height: 1; border-color: var(--border);" title="Open deck in Archidekt">
+              ↗
+            </button>
+          </div>
           <span class="deck-mini-meta" id="adMeta">by Owner</span>
         </div>
       </div>
@@ -156,10 +166,16 @@
       </div>
 
       <!-- Primary Sync Action -->
-      <button id="applySyncBtn" class="btn btn-success btn-block" style="padding: 0.75rem;">
-        <span id="syncIcon">🚀</span>
-        <span id="syncText">Sync to Archidekt</span>
-      </button>
+      <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+        <button id="applySyncBtn" class="btn btn-success" style="flex: 1; padding: 0.75rem;">
+          <span id="syncIcon">🚀</span>
+          <span id="syncText">Sync to Archidekt</span>
+        </button>
+        <button id="openDeckBtn" class="btn btn-outline" style="padding: 0.75rem 0.85rem; font-size: 0.8rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.35rem;" title="Open deck in Archidekt (new tab)">
+          <span>↗</span>
+          <span>Open Deck</span>
+        </button>
+      </div>
     </section>
 
   </main>

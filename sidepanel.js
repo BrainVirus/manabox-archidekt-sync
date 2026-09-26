@@ -26,6 +26,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const useTabDeckBtn = document.getElementById('useTabDeckBtn');
   const manaboxInput = document.getElementById('manaboxInput');
   const archidektInput = document.getElementById('archidektInput');
+  const topOpenArchidektBtn = document.getElementById('topOpenArchidektBtn');
+  const diffOpenArchidektBtn = document.getElementById('diffOpenArchidektBtn');
+  const openDeckBtn = document.getElementById('openDeckBtn');
   const compareBtn = document.getElementById('compareBtn');
   const compareIcon = document.getElementById('compareIcon');
   const compareText = document.getElementById('compareText');
@@ -228,6 +231,43 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // -----------------------------------------------------------
+  // Open Deck in Archidekt Helper
+  // -----------------------------------------------------------
+
+  async function openArchidektTab(input) {
+    const raw = input || archidektInput.value;
+    const deckId = normalizeArchidektDeckId(raw);
+    if (!deckId) {
+      showToast('Enter an Archidekt link or ID first', false);
+      return;
+    }
+    const url = `https://archidekt.com/decks/${deckId}`;
+    try {
+      await chrome.tabs.create({ url });
+    } catch (e) {
+      window.open(url, '_blank');
+    }
+  }
+
+  if (topOpenArchidektBtn) {
+    topOpenArchidektBtn.addEventListener('click', () => openArchidektTab());
+  }
+
+  if (diffOpenArchidektBtn) {
+    diffOpenArchidektBtn.addEventListener('click', () => {
+      const id = state.comparison?.archidekt?.id || archidektInput.value;
+      openArchidektTab(id);
+    });
+  }
+
+  if (openDeckBtn) {
+    openDeckBtn.addEventListener('click', () => {
+      const id = state.comparison?.archidekt?.id || archidektInput.value;
+      openArchidektTab(id);
+    });
+  }
+
+  // -----------------------------------------------------------
   // Pairings
   // -----------------------------------------------------------
 
@@ -344,6 +384,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           <span class="saved-pair-name">${escapeHtml(p.name)}</span>
         </div>
         <div class="saved-pair-actions">
+          <button class="pair-action-btn pair-open-btn" title="Open in Archidekt (new tab)">↗</button>
           <button class="pair-action-btn" title="Load & compare this deck">Load ➔</button>
           <button class="pair-action-btn pair-delete-btn" title="Delete pairing">&times;</button>
         </div>
@@ -354,6 +395,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         archidektInput.value = p.archidektUrl;
         renderPairings();
         triggerComparison();
+      });
+
+      row.querySelector('.pair-open-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        openArchidektTab(p.archidektUrl);
       });
 
       row.querySelector('.pair-delete-btn').addEventListener('click', async (e) => {
