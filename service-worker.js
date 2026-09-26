@@ -7,20 +7,9 @@ chrome.sidePanel
 
 chrome.runtime.onInstalled.addListener(async (details) => {
   if (details.reason === 'install') {
-    // Set initial default demo pairing
-    const { pairings = [] } = await chrome.storage.local.get('pairings');
-    if (pairings.length === 0) {
-      await chrome.storage.local.set({
-        pairings: [
-          {
-            id: 'demo-mice',
-            name: 'Sample Deck',
-            manaboxUrl: 'https://manabox.app/decks/sample-deck-0',
-            archidektUrl: 'https://archidekt.com/decks/4000',
-            format: 'Commander'
-          }
-        ]
-      });
+    const { pairings } = await chrome.storage.local.get('pairings');
+    if (!pairings) {
+      await chrome.storage.local.set({ pairings: [] });
     }
   }
 });
