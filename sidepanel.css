@@ -631,9 +631,45 @@ body {
   border: 1px solid rgba(139, 92, 246, 0.3);
 }
 
+.badge-tag.board {
+  background: rgba(14, 165, 233, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.3);
+}
+
 .badge-tag.sync {
   background: var(--bg-dark);
   color: var(--text-muted);
+}
+
+.badge-board {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.03em;
+  margin-right: 0.35rem;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.badge-board.sideboard {
+  background: rgba(234, 179, 8, 0.15);
+  color: #facc15;
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+.badge-board.maybeboard {
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.badge-board.commander {
+  background: rgba(244, 63, 94, 0.15);
+  color: #fb7185;
+  border: 1px solid rgba(244, 63, 94, 0.3);
 }
 
 .card-meta-text .version-arrow {

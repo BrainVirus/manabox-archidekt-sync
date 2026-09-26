@@ -837,6 +837,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     return 'Normal';
   }
 
+  function getManaBoxBoard(boardCategory) {
+    switch (boardCategory) {
+      case 0:
+      case 1:
+      case 2:
+        return 'Commander';
+      case 4:
+        return 'Sideboard';
+      case 5:
+        return 'Maybeboard';
+      case 3:
+      default:
+        return 'Mainboard';
+    }
+  }
+
+  function getArchidektBoard(categories = [], isCompanion = false) {
+    const normCats = (categories || []).map(c => String(c).toLowerCase().trim());
+    if (isCompanion || normCats.some(c => c === 'commander' || c.includes('commander'))) {
+      return 'Commander';
+    }
+    if (normCats.some(c => c === 'sideboard' || c.includes('sideboard'))) {
+      return 'Sideboard';
+    }
+    if (normCats.some(c => c === 'maybeboard' || c === 'maybe' || c.includes('maybeboard'))) {
+      return 'Maybeboard';
+    }
+    return 'Mainboard';
+  }
+
   async function fetchManaBoxDeck(inputUrl) {
     const url = normalizeManaBoxUrl(inputUrl);
     if (!url) {
@@ -861,7 +891,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rawDeck = unwrapAstroData(rawData.deck);
 
     const cards = (rawDeck.cards || []).map((c, idx) => {
-      const isCommander = c.boardCategory === 0;
+      const board = getManaBoxBoard(c.boardCategory);
+      const isCommander = board === 'Commander';
       const imageUrl = c.images && c.images[0] ? (c.images[0].imageUrlNormal || c.images[0].imageUrlSmall) : '';
       const modifier = normalizeModifier(c.variant);
       return {
@@ -869,7 +900,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         name: c.name || 'Unknown',
         quantity: Number(c.quantity) || 1,
         boardCategory: c.boardCategory,
-        category: isCommander ? 'Commander' : 'Mainboard',
+        board,
+        category: board,
+        categories: [board],
         isCommander,
         setId: (c.setId || '').toLowerCase().trim(),
         collectorNumber: String(c.collectorNumber || '').trim(),
@@ -909,7 +942,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const oracleObj = cardObj.oracleCard || {};
       const editionObj = cardObj.edition || {};
       const categories = entry.categories || [];
-      const isCommander = categories.includes('Commander');
+      const board = getArchidektBoard(categories, entry.companion);
+      const isCommander = board === 'Commander';
       const modifier = normalizeModifier(entry.modifier);
 
       return {
@@ -917,7 +951,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         name: oracleObj.name || cardObj.displayName || 'Unknown',
         quantity: Number(entry.quantity) || 1,
         categories,
-        category: isCommander ? 'Commander' : (categories[0] || 'Mainboard'),
+        board,
+        category: board,
         isCommander,
         cardId: cardObj.id,
         setId: (editionObj.editioncode || '').toLowerCase().trim(),
@@ -1001,12 +1036,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       if (!adGroup) {
-        // Entire card name missing from Archidekt: ADD
+        // Entire card name missing from Archidekt: ADD to target board
         for (const mb of mbGroup.entries) {
           added.push({
-            id: `add-${mb.name}-${mb.setId}-${mb.collectorNumber}-${mb.modifier}`,
+            id: `add-${mb.name}-${mb.setId}-${mb.collectorNumber}-${mb.modifier}-${mb.board}`,
             name: mb.name,
             action: 'add',
+            board: mb.board,
+            categories: [mb.board],
             delta: mb.quantity,
             targetQuantity: mb.quantity,
             manaboxQty: mb.quantity,
@@ -1027,14 +1064,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const remainingMb = [...mbGroup.entries];
         const remainingAd = [...adGroup.entries];
 
-        // 1. Exact match on printing (setId + collectorNumber), modifier (finish), and commander role
+        // 1. Exact match on same board + printing (setId + collectorNumber) + modifier (finish)
         for (let i = remainingMb.length - 1; i >= 0; i--) {
           const mb = remainingMb[i];
           const matchIdx = remainingAd.findIndex(ad =>
+            ad.board === mb.board &&
             ad.setId === mb.setId &&
             ad.collectorNumber === mb.collectorNumber &&
-            ad.modifier === mb.modifier &&
-            ad.isCommander === mb.isCommander
+            ad.modifier === mb.modifier
           );
 
           if (matchIdx !== -1) {
@@ -1043,9 +1080,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (mb.quantity === ad.quantity) {
               inSync.push({
-                id: `sync-${mb.name}-${mb.setId}-${mb.collectorNumber}-${mb.modifier}`,
+                id: `sync-${mb.name}-${mb.setId}-${mb.collectorNumber}-${mb.modifier}-${mb.board}`,
                 name: mb.name,
                 action: 'sync',
+                board: mb.board,
+                categories: ad.categories,
                 quantity: mb.quantity,
                 manaboxQty: mb.quantity,
                 archidektQty: ad.quantity,
@@ -1063,6 +1102,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 name: mb.name,
                 action: 'modify',
                 changeType: 'quantity',
+                board: mb.board,
+                categories: ad.categories,
                 delta: mb.quantity - ad.quantity,
                 targetQuantity: mb.quantity,
                 manaboxQty: mb.quantity,
@@ -1070,7 +1111,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 isCommander: mb.isCommander,
                 archidektCardId: ad.cardId,
                 archidektRelationId: ad.relationId,
-                categories: ad.categories,
                 setId: mb.setId,
                 collectorNumber: mb.collectorNumber,
                 modifier: mb.modifier,
@@ -1083,20 +1123,67 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         }
 
-        // 2. Match remaining entries of same card name (Version, collector number, or finish/foil changes)
+        // 2. Same board match: version or finish change
+        for (let i = remainingMb.length - 1; i >= 0; i--) {
+          const mb = remainingMb[i];
+          const matchIdx = remainingAd.findIndex(ad => ad.board === mb.board);
+
+          if (matchIdx !== -1) {
+            const ad = remainingAd.splice(matchIdx, 1)[0];
+            remainingMb.splice(i, 1);
+
+            const isVersionChange = mb.setId !== ad.setId || mb.collectorNumber !== ad.collectorNumber;
+            const isFinishChange = mb.modifier !== ad.modifier;
+            const changeType = isVersionChange ? 'version' : (isFinishChange ? 'finish' : 'quantity');
+
+            modified.push({
+              id: `mod-ver-${ad.relationId}`,
+              name: mb.name,
+              action: 'modify',
+              changeType,
+              board: mb.board,
+              categories: ad.categories,
+              delta: mb.quantity - ad.quantity,
+              targetQuantity: mb.quantity,
+              manaboxQty: mb.quantity,
+              archidektQty: ad.quantity,
+              isCommander: mb.isCommander,
+              archidektCardId: ad.cardId,
+              archidektRelationId: ad.relationId,
+              setId: mb.setId,
+              collectorNumber: mb.collectorNumber,
+              modifier: mb.modifier,
+              isFoil: mb.isFoil,
+              fromSet: ad.setId,
+              fromCollector: ad.collectorNumber,
+              fromModifier: ad.modifier,
+              toSet: mb.setId,
+              toCollector: mb.collectorNumber,
+              toModifier: mb.modifier,
+              imageUrl: mb.imageUrl || ad.imageUrl,
+              manaCost: mb.manaCost,
+              selected: true
+            });
+          }
+        }
+
+        // 3. Cross-board match: card moved between boards (e.g. Mainboard -> Sideboard/Maybeboard)
         while (remainingMb.length > 0 && remainingAd.length > 0) {
           const mb = remainingMb.shift();
           const ad = remainingAd.shift();
 
           const isVersionChange = mb.setId !== ad.setId || mb.collectorNumber !== ad.collectorNumber;
           const isFinishChange = mb.modifier !== ad.modifier;
-          const changeType = isVersionChange ? 'version' : (isFinishChange ? 'finish' : 'version');
 
           modified.push({
-            id: `mod-ver-${ad.relationId}`,
+            id: `mod-board-${ad.relationId}`,
             name: mb.name,
             action: 'modify',
-            changeType,
+            changeType: 'board',
+            fromBoard: ad.board,
+            toBoard: mb.board,
+            board: mb.board,
+            categories: [mb.board],
             delta: mb.quantity - ad.quantity,
             targetQuantity: mb.quantity,
             manaboxQty: mb.quantity,
@@ -1104,31 +1191,32 @@ document.addEventListener('DOMContentLoaded', async () => {
             isCommander: mb.isCommander,
             archidektCardId: ad.cardId,
             archidektRelationId: ad.relationId,
-            categories: ad.categories,
-            // Target printing & finish:
             setId: mb.setId,
             collectorNumber: mb.collectorNumber,
             modifier: mb.modifier,
             isFoil: mb.isFoil,
-            // Previous printing & finish:
             fromSet: ad.setId,
             fromCollector: ad.collectorNumber,
             fromModifier: ad.modifier,
             toSet: mb.setId,
             toCollector: mb.collectorNumber,
             toModifier: mb.modifier,
+            isVersionChange,
+            isFinishChange,
             imageUrl: mb.imageUrl || ad.imageUrl,
             manaCost: mb.manaCost,
             selected: true
           });
         }
 
-        // 3. Any leftovers in ManaBox are extra additions
+        // 4. Any leftovers in ManaBox are extra additions
         for (const mb of remainingMb) {
           added.push({
-            id: `add-${mb.name}-${mb.setId}-${mb.collectorNumber}-${mb.modifier}`,
+            id: `add-${mb.name}-${mb.setId}-${mb.collectorNumber}-${mb.modifier}-${mb.board}`,
             name: mb.name,
             action: 'add',
+            board: mb.board,
+            categories: [mb.board],
             delta: mb.quantity,
             targetQuantity: mb.quantity,
             manaboxQty: mb.quantity,
@@ -1144,12 +1232,14 @@ document.addEventListener('DOMContentLoaded', async () => {
           });
         }
 
-        // 4. Any leftovers in Archidekt are removals
+        // 5. Any leftovers in Archidekt are removals
         for (const ad of remainingAd) {
           removed.push({
             id: `rem-${ad.relationId}`,
             name: ad.name,
             action: 'remove',
+            board: ad.board,
+            categories: ad.categories,
             delta: -ad.quantity,
             targetQuantity: 0,
             manaboxQty: 0,
@@ -1157,7 +1247,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             isCommander: ad.isCommander,
             archidektCardId: ad.cardId,
             archidektRelationId: ad.relationId,
-            categories: ad.categories,
             setId: ad.setId,
             collectorNumber: ad.collectorNumber,
             modifier: ad.modifier,
@@ -1177,6 +1266,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             id: `rem-${ad.relationId}`,
             name: ad.name,
             action: 'remove',
+            board: ad.board,
+            categories: ad.categories,
             delta: -ad.quantity,
             targetQuantity: 0,
             manaboxQty: 0,
@@ -1184,7 +1275,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             isCommander: ad.isCommander,
             archidektCardId: ad.cardId,
             archidektRelationId: ad.relationId,
-            categories: ad.categories,
             setId: ad.setId,
             collectorNumber: ad.collectorNumber,
             modifier: ad.modifier,
@@ -1313,12 +1403,25 @@ document.addEventListener('DOMContentLoaded', async () => {
       let tagClass = item.action;
       let tagLabel = '';
 
+      let boardBadgeHtml = '';
+      const displayBoard = item.toBoard || item.board;
+      if (displayBoard === 'Sideboard') {
+        boardBadgeHtml = '<span class="badge-board sideboard">Sideboard</span>';
+      } else if (displayBoard === 'Maybeboard') {
+        boardBadgeHtml = '<span class="badge-board maybeboard">Maybeboard</span>';
+      } else if (item.isCommander || displayBoard === 'Commander') {
+        boardBadgeHtml = '<span class="badge-board commander">Commander</span>';
+      }
+
       if (item.action === 'add') {
         tagLabel = `+${item.targetQuantity}`;
       } else if (item.action === 'remove') {
         tagLabel = `-${item.archidektQty}`;
       } else if (item.action === 'modify') {
-        if (item.changeType === 'version') {
+        if (item.changeType === 'board') {
+          tagClass = 'modify board';
+          tagLabel = item.delta !== 0 ? `~ Board (${item.archidektQty}➔${item.targetQuantity})` : `~ Board`;
+        } else if (item.changeType === 'version') {
           tagClass = 'modify version';
           tagLabel = item.delta !== 0 ? `~ Ver (${item.archidektQty}➔${item.targetQuantity})` : `~ Version`;
         } else if (item.changeType === 'finish') {
@@ -1336,7 +1439,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       const thumbUrl = item.imageUrl || `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(item.name)}&format=image`;
 
       let metaHtml = '';
-      if (item.action === 'modify' && (item.changeType === 'version' || item.changeType === 'finish')) {
+      if (item.action === 'modify' && item.changeType === 'board') {
+        const fromFoil = item.fromModifier && item.fromModifier !== 'Normal' ? ` <span class="foil-sparkle">✨${item.fromModifier}</span>` : '';
+        const toFoil = item.toModifier && item.toModifier !== 'Normal' ? ` <span class="foil-sparkle">✨${item.toModifier}</span>` : '';
+        const printingInfo = item.isVersionChange || item.isFinishChange
+          ? ` • [${(item.fromSet || '').toUpperCase()}]${fromFoil} ➔ [${(item.toSet || '').toUpperCase()}]${toFoil}`
+          : '';
+        metaHtml = `
+          <span>${item.fromBoard || 'Mainboard'}</span>
+          <span class="version-arrow">➔</span>
+          <span style="color: #38bdf8; font-weight: 700;">${item.toBoard}</span>
+          ${printingInfo}
+        `;
+      } else if (item.action === 'modify' && (item.changeType === 'version' || item.changeType === 'finish')) {
         const fromFoil = item.fromModifier && item.fromModifier !== 'Normal' ? ` <span class="foil-sparkle">✨${item.fromModifier}</span>` : '';
         const toFoil = item.toModifier && item.toModifier !== 'Normal' ? ` <span class="foil-sparkle">✨${item.toModifier}</span>` : '';
         metaHtml = `
@@ -1363,7 +1478,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
         <div class="card-info">
           <span class="card-name-text" title="${escapeHtml(item.name)}">
-            ${item.isCommander ? '👑 ' : ''}${escapeHtml(item.name)}
+            ${boardBadgeHtml}${escapeHtml(item.name)}
           </span>
           <span class="card-meta-text">
             ${metaHtml}
@@ -1420,6 +1535,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     let text = '';
     const cmdr = [];
     const main = [];
+    const side = [];
+    const maybe = [];
 
     function formatLine(c) {
       const modSuffix = c.modifier === 'Foil' ? ' *F*' : (c.modifier === 'Etched' ? ' *E*' : '');
@@ -1429,22 +1546,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       return `${c.targetQuantity} ${c.name}${modSuffix}`;
     }
 
-    for (const c of added) {
+    function pushToBoard(c) {
       const line = formatLine(c);
-      if (c.isCommander) cmdr.push(line);
+      const b = c.toBoard || c.board;
+      if (c.isCommander || b === 'Commander') cmdr.push(line);
+      else if (b === 'Sideboard') side.push(line);
+      else if (b === 'Maybeboard') maybe.push(line);
       else main.push(line);
     }
 
+    for (const c of added) pushToBoard(c);
     for (const c of modified) {
-      if (c.targetQuantity > 0) {
-        const line = formatLine(c);
-        if (c.isCommander) cmdr.push(line);
-        else main.push(line);
-      }
+      if (c.targetQuantity > 0) pushToBoard(c);
     }
 
     if (cmdr.length) text += '# Commander\n' + cmdr.join('\n') + '\n\n';
-    if (main.length) text += '# Mainboard\n' + main.join('\n') + '\n';
+    if (main.length) text += '# Mainboard\n' + main.join('\n') + '\n\n';
+    if (side.length) text += '# Sideboard\n' + side.join('\n') + '\n\n';
+    if (maybe.length) text += '# Maybeboard\n' + maybe.join('\n') + '\n\n';
 
     await navigator.clipboard.writeText(text.trim());
     showToast('Copied Mass Edit text to clipboard!');
@@ -1510,8 +1629,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const removals = selectedChanges.filter(c => c.action === 'remove');
     const modifications = selectedChanges.filter(c => c.action === 'modify');
 
-    const versionModifications = modifications.filter(c => c.changeType === 'version' || c.changeType === 'finish');
-    const qtyModifications = modifications.filter(c => c.changeType !== 'version' && c.changeType !== 'finish');
+    const versionModifications = modifications.filter(c => c.changeType === 'version' || c.changeType === 'finish' || c.isVersionChange);
+    const qtyOrBoardModifications = modifications.filter(c => c.changeType !== 'version' && c.changeType !== 'finish' && !c.isVersionChange);
 
     // Cards that require card ID / edition resolution on Archidekt
     const cardsToResolve = [...additions, ...versionModifications];
@@ -1520,8 +1639,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (cardsToResolve.length > 0) {
       let editText = '';
-      const cmdr = cardsToResolve.filter(c => c.isCommander);
-      const main = cardsToResolve.filter(c => !c.isCommander);
+      const cmdr = cardsToResolve.filter(c => c.board === 'Commander' || c.isCommander);
+      const side = cardsToResolve.filter(c => c.board === 'Sideboard');
+      const maybe = cardsToResolve.filter(c => c.board === 'Maybeboard');
+      const main = cardsToResolve.filter(c => !c.isCommander && c.board !== 'Sideboard' && c.board !== 'Maybeboard');
 
       function formatCardLine(c) {
         const qty = c.targetQuantity || 1;
@@ -1535,6 +1656,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (cmdr.length) {
         editText += '# Commander\n';
         for (const c of cmdr) editText += formatCardLine(c) + '\n';
+        editText += '\n';
+      }
+
+      if (side.length) {
+        editText += '# Sideboard\n';
+        for (const c of side) editText += formatCardLine(c) + '\n';
+        editText += '\n';
+      }
+
+      if (maybe.length) {
+        editText += '# Maybeboard\n';
+        for (const c of maybe) editText += formatCardLine(c) + '\n';
         editText += '\n';
       }
 
@@ -1618,11 +1751,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         throw new Error(`Could not resolve card: "${add.name}"`);
       }
 
+      const targetCategories = add.categories?.length ? add.categories : (add.board ? [add.board] : ['Mainboard']);
+
       mutations.push({
         action: 'add',
         cardid: item.card.id,
         customCardId: null,
-        categories: add.isCommander ? ['Commander'] : ['Mainboard'],
+        categories: targetCategories,
         patchId: generateUuid(),
         modifications: {
           quantity: add.targetQuantity,
@@ -1643,12 +1778,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         throw new Error(`Could not resolve new printing for: "${mod.name}"`);
       }
 
+      const targetCategories = mod.toBoard ? [mod.toBoard] : (mod.categories?.length ? mod.categories : [mod.board || 'Mainboard']);
+
       mutations.push({
         action: 'modify',
         cardid: item.card.id,
         deckRelationId: mod.archidektRelationId,
         patchId: generateUuid(),
-        categories: mod.isCommander ? ['Commander'] : (mod.categories?.length ? mod.categories : ['Mainboard']),
+        categories: targetCategories,
         modifications: {
           quantity: mod.targetQuantity,
           modifier: mod.modifier || item.modifier || 'Normal',
@@ -1660,15 +1797,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
 
-    // 3. Quantity Modifications (same printing)
-    for (const mod of qtyModifications) {
+    // 3. Quantity & Board Modifications
+    for (const mod of qtyOrBoardModifications) {
       if (!mod.archidektRelationId) continue;
+
+      const targetCategories = mod.toBoard ? [mod.toBoard] : (mod.categories?.length ? mod.categories : [mod.board || 'Mainboard']);
+
       mutations.push({
         action: 'modify',
         cardid: mod.archidektCardId,
         deckRelationId: mod.archidektRelationId,
         patchId: generateUuid(),
-        categories: mod.isCommander ? ['Commander'] : (mod.categories?.length ? mod.categories : ['Mainboard']),
+        categories: targetCategories,
         modifications: {
           quantity: mod.targetQuantity,
           modifier: mod.modifier || 'Normal',
@@ -1688,7 +1828,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         cardid: rem.archidektCardId,
         deckRelationId: rem.archidektRelationId,
         patchId: generateUuid(),
-        categories: ['Mainboard'],
+        categories: rem.categories?.length ? rem.categories : [rem.board || 'Mainboard'],
         modifications: { quantity: 0 }
       });
     }
