@@ -110,8 +110,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function setupDialogs() {
     document.querySelectorAll('dialog').forEach(dialog => {
-      dialog.querySelectorAll('[data-close-dialog]').forEach(btn => {
-        btn.addEventListener('click', () => dialog.close());
+      dialog.querySelectorAll('[data-close-dialog], .close-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dialog.close();
+        });
       });
 
       if (!('closedBy' in HTMLDialogElement.prototype)) {
@@ -130,8 +134,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // Run dialog setup immediately
+  setupDialogs();
+
   let toastTimer = null;
   function showToast(msg, isSuccess = true) {
+    if (!toast) return;
     if (toastTimer) clearTimeout(toastTimer);
     toast.innerHTML = `
       <span>${escapeHtml(msg)}</span>
@@ -140,29 +148,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     toast.style.display = 'flex';
     toast.style.borderLeftColor = isSuccess ? 'var(--success)' : 'var(--danger)';
     toastTimer = setTimeout(() => {
-      toast.style.display = 'none';
+      if (toast) toast.style.display = 'none';
     }, 2200);
   }
 
-  toast.addEventListener('click', () => {
-    if (toastTimer) clearTimeout(toastTimer);
-    toast.style.display = 'none';
-  });
+  if (toast) {
+    toast.addEventListener('click', () => {
+      if (toastTimer) clearTimeout(toastTimer);
+      toast.style.display = 'none';
+    });
+  }
 
   // -----------------------------------------------------------
   // Archidekt Cookie & Session Auto-Detection
   // -----------------------------------------------------------
 
-  authBtn.addEventListener('click', () => {
-    updateAuthDialogUI();
-    authDialog.showModal();
-  });
+  if (authBtn) {
+    authBtn.addEventListener('click', () => {
+      updateAuthDialogUI();
+      if (authDialog) authDialog.showModal();
+    });
+  }
 
-  refreshAuthBtn.addEventListener('click', async () => {
-    await checkAuthSession();
-    updateAuthDialogUI();
-    showToast('Session re-checked!');
-  });
+  if (refreshAuthBtn) {
+    refreshAuthBtn.addEventListener('click', async () => {
+      await checkAuthSession();
+      updateAuthDialogUI();
+      showToast('Session re-checked!');
+    });
+  }
 
   async function checkAuthSession() {
     try {
@@ -397,6 +411,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     return pairsCopy;
   }
 
+  function setupSortControl() {
+    if (sortPairsSelect) {
+      sortPairsSelect.value = localStorage.getItem('manabox_pairs_sort') || 'date-desc';
+      sortPairsSelect.addEventListener('change', () => {
+        localStorage.setItem('manabox_pairs_sort', sortPairsSelect.value);
+        renderPairings();
+      });
+    }
+  }
+
   function setupSavedPairsAccordion() {
     if (!savedPairsSection || !savedPairsToggle) return;
 
@@ -411,14 +435,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       const collapsed = savedPairsSection.classList.contains('collapsed');
       localStorage.setItem('manabox_pairs_collapsed', String(collapsed));
     });
-
-    if (sortPairsSelect) {
-      sortPairsSelect.value = localStorage.getItem('manabox_pairs_sort') || 'date-desc';
-      sortPairsSelect.addEventListener('change', () => {
-        localStorage.setItem('manabox_pairs_sort', sortPairsSelect.value);
-        renderPairings();
-      });
-    }
   }
 
   async function loadAndComparePair(p) {
@@ -571,68 +587,70 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   let pendingSaveContext = null;
 
-  savePairingBtn.addEventListener('click', () => {
-    const mbUrl = manaboxInput.value.trim();
-    const adUrl = archidektInput.value.trim();
-    if (!mbUrl || !adUrl) {
-      showToast('Enter both deck links first', false);
-      return;
-    }
-
-    const matchResult = findExistingPairing(mbUrl, adUrl);
-    pendingSaveContext = {
-      mbUrl,
-      adUrl,
-      existing: matchResult ? matchResult.pair : null
-    };
-
-    if (matchResult) {
-      // DUPLICATE DETECTED
-      if (savePairDupAlert) savePairDupAlert.style.display = 'block';
-      if (savePairModalIcon) savePairModalIcon.textContent = '⚠️';
-      if (savePairModalTitle) savePairModalTitle.textContent = 'Pairing Already Exists';
-      if (savePairModalSubtitle) savePairModalSubtitle.textContent = 'Choose whether to update the nickname or create a new pairing';
-
-      const desc = matchResult.matchType === 'exact'
-        ? 'this deck pair'
-        : (matchResult.matchType === 'manabox' ? 'this ManaBox deck' : 'this Archidekt deck');
-
-      if (savePairDupMessage) {
-        savePairDupMessage.innerHTML = `A saved pairing for <strong>${desc}</strong> already exists as <strong>"${escapeHtml(matchResult.pair.name)}"</strong>.<br>Would you like to update the existing name or save as a new pairing?`;
+  if (savePairingBtn) {
+    savePairingBtn.addEventListener('click', () => {
+      const mbUrl = manaboxInput.value.trim();
+      const adUrl = archidektInput.value.trim();
+      if (!mbUrl || !adUrl) {
+        showToast('Enter both deck links first', false);
+        return;
       }
 
-      if (savePairNameInput) {
-        savePairNameInput.value = matchResult.pair.name;
-      }
+      const matchResult = findExistingPairing(mbUrl, adUrl);
+      pendingSaveContext = {
+        mbUrl,
+        adUrl,
+        existing: matchResult ? matchResult.pair : null
+      };
 
-      if (savePairActionsNew) savePairActionsNew.style.display = 'none';
-      if (savePairActionsDup) savePairActionsDup.style.display = 'flex';
-    } else {
-      // BRAND NEW PAIRING
-      if (savePairDupAlert) savePairDupAlert.style.display = 'none';
-      if (savePairModalIcon) savePairModalIcon.textContent = '💾';
-      if (savePairModalTitle) savePairModalTitle.textContent = 'Save Deck Pairing';
-      if (savePairModalSubtitle) savePairModalSubtitle.textContent = 'Store this pair for 1-click loading and bulk sync';
+      if (matchResult) {
+        // DUPLICATE DETECTED
+        if (savePairDupAlert) savePairDupAlert.style.display = 'block';
+        if (savePairModalIcon) savePairModalIcon.textContent = '⚠️';
+        if (savePairModalTitle) savePairModalTitle.textContent = 'Pairing Already Exists';
+        if (savePairModalSubtitle) savePairModalSubtitle.textContent = 'Choose whether to update the nickname or create a new pairing';
 
-      const defaultName = state.comparison ? state.comparison.manabox.name : 'Deck Pair';
-      if (savePairNameInput) {
-        savePairNameInput.value = defaultName;
-      }
+        const desc = matchResult.matchType === 'exact'
+          ? 'this deck pair'
+          : (matchResult.matchType === 'manabox' ? 'this ManaBox deck' : 'this Archidekt deck');
 
-      if (savePairActionsNew) savePairActionsNew.style.display = 'flex';
-      if (savePairActionsDup) savePairActionsDup.style.display = 'none';
-    }
-
-    if (savePairDialog) {
-      savePairDialog.showModal();
-      setTimeout(() => {
-        if (savePairNameInput) {
-          savePairNameInput.focus();
-          savePairNameInput.select();
+        if (savePairDupMessage) {
+          savePairDupMessage.innerHTML = `A saved pairing for <strong>${desc}</strong> already exists as <strong>"${escapeHtml(matchResult.pair.name)}"</strong>.<br>Would you like to update the existing name or save as a new pairing?`;
         }
-      }, 50);
-    }
-  });
+
+        if (savePairNameInput) {
+          savePairNameInput.value = matchResult.pair.name;
+        }
+
+        if (savePairActionsNew) savePairActionsNew.style.display = 'none';
+        if (savePairActionsDup) savePairActionsDup.style.display = 'flex';
+      } else {
+        // BRAND NEW PAIRING
+        if (savePairDupAlert) savePairDupAlert.style.display = 'none';
+        if (savePairModalIcon) savePairModalIcon.textContent = '💾';
+        if (savePairModalTitle) savePairModalTitle.textContent = 'Save Deck Pairing';
+        if (savePairModalSubtitle) savePairModalSubtitle.textContent = 'Store this pair for 1-click loading and bulk sync';
+
+        const defaultName = state.comparison ? state.comparison.manabox.name : 'Deck Pair';
+        if (savePairNameInput) {
+          savePairNameInput.value = defaultName;
+        }
+
+        if (savePairActionsNew) savePairActionsNew.style.display = 'flex';
+        if (savePairActionsDup) savePairActionsDup.style.display = 'none';
+      }
+
+      if (savePairDialog) {
+        savePairDialog.showModal();
+        setTimeout(() => {
+          if (savePairNameInput) {
+            savePairNameInput.focus();
+            savePairNameInput.select();
+          }
+        }, 50);
+      }
+    });
+  }
 
   // Action: Save New Pairing (from New view)
   if (confirmSaveNewPairBtn) {
@@ -846,46 +864,54 @@ document.addEventListener('DOMContentLoaded', async () => {
     isSyncing: false
   };
 
-  openBulkModalBtn.addEventListener('click', async () => {
-    if (!state.pairings.length) {
-      showToast('No saved deck pairs yet. Use 💾 Save to add pairings first.', false);
-      return;
-    }
+  if (openBulkModalBtn) {
+    openBulkModalBtn.addEventListener('click', async () => {
+      if (!state.pairings.length) {
+        showToast('No saved deck pairs yet. Use 💾 Save to add pairings first.', false);
+        return;
+      }
 
-    bulkState.pairs = getSortedPairings().map(p => ({
-      ...p,
-      status: 'idle',
-      comparison: null,
-      error: null,
-      selected: false
-    }));
+      bulkState.pairs = getSortedPairings().map(p => ({
+        ...p,
+        status: 'idle',
+        comparison: null,
+        error: null,
+        selected: false
+      }));
 
-    renderBulkPairsList();
-    updateBulkSummaryBanner();
-    bulkSyncDialog.showModal();
+      renderBulkPairsList();
+      updateBulkSummaryBanner();
+      if (bulkSyncDialog) bulkSyncDialog.showModal();
 
-    // Automatically check all on open
-    await runBulkCheck();
-  });
-
-  bulkCheckAllBtn.addEventListener('click', async () => {
-    if (bulkState.isChecking || bulkState.isSyncing) return;
-    await runBulkCheck();
-  });
-
-  bulkSelectAllBtn.addEventListener('click', () => {
-    bulkState.pairs.forEach(p => {
-      if (p.status === 'has_changes') p.selected = true;
+      // Automatically check all on open
+      await runBulkCheck();
     });
-    renderBulkPairsList();
-    updateBulkSyncButtonState();
-  });
+  }
 
-  bulkDeselectBtn.addEventListener('click', () => {
-    bulkState.pairs.forEach(p => p.selected = false);
-    renderBulkPairsList();
-    updateBulkSyncButtonState();
-  });
+  if (bulkCheckAllBtn) {
+    bulkCheckAllBtn.addEventListener('click', async () => {
+      if (bulkState.isChecking || bulkState.isSyncing) return;
+      await runBulkCheck();
+    });
+  }
+
+  if (bulkSelectAllBtn) {
+    bulkSelectAllBtn.addEventListener('click', () => {
+      bulkState.pairs.forEach(p => {
+        if (p.status === 'has_changes') p.selected = true;
+      });
+      renderBulkPairsList();
+      updateBulkSyncButtonState();
+    });
+  }
+
+  if (bulkDeselectBtn) {
+    bulkDeselectBtn.addEventListener('click', () => {
+      bulkState.pairs.forEach(p => p.selected = false);
+      renderBulkPairsList();
+      updateBulkSyncButtonState();
+    });
+  }
 
   function updateBulkSummaryBanner() {
     if (bulkState.isChecking || bulkState.isSyncing) return;
@@ -1127,9 +1153,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  bulkSyncSelectedBtn.addEventListener('click', async () => {
-    await runBulkSync();
-  });
+  if (bulkSyncSelectedBtn) {
+    bulkSyncSelectedBtn.addEventListener('click', async () => {
+      await runBulkSync();
+    });
+  }
 
   async function runBulkSync() {
     if (!state.auth.authenticated || !state.auth.token) {
@@ -1727,9 +1755,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Comparison Handler
   // -----------------------------------------------------------
 
-  compareBtn.addEventListener('click', async () => {
-    await triggerComparison();
-  });
+  if (compareBtn) {
+    compareBtn.addEventListener('click', async () => {
+      await triggerComparison();
+    });
+  }
 
   async function triggerComparison() {
     const mbVal = manaboxInput.value.trim();
@@ -1933,111 +1963,119 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  selectAllBtn.addEventListener('click', () => {
-    if (!state.comparison) return;
-    const { added, removed, modified } = state.comparison.changes;
-    [...added, ...removed, ...modified].forEach(i => i.selected = true);
-    renderChangesList();
-  });
+  if (selectAllBtn) {
+    selectAllBtn.addEventListener('click', () => {
+      if (!state.comparison) return;
+      const { added, removed, modified } = state.comparison.changes;
+      [...added, ...removed, ...modified].forEach(i => i.selected = true);
+      renderChangesList();
+    });
+  }
 
-  deselectAllBtn.addEventListener('click', () => {
-    if (!state.comparison) return;
-    const { added, removed, modified } = state.comparison.changes;
-    [...added, ...removed, ...modified].forEach(i => i.selected = false);
-    renderChangesList();
-  });
+  if (deselectAllBtn) {
+    deselectAllBtn.addEventListener('click', () => {
+      if (!state.comparison) return;
+      const { added, removed, modified } = state.comparison.changes;
+      [...added, ...removed, ...modified].forEach(i => i.selected = false);
+      renderChangesList();
+    });
+  }
 
   // -----------------------------------------------------------
   // Mass Edit Clipboard Copy
   // -----------------------------------------------------------
 
-  copyMassEditBtn.addEventListener('click', async () => {
-    if (!state.comparison) return;
-    const { added, modified } = state.comparison.changes;
+  if (copyMassEditBtn) {
+    copyMassEditBtn.addEventListener('click', async () => {
+      if (!state.comparison) return;
+      const { added, modified } = state.comparison.changes;
 
-    let text = '';
-    const cmdr = [];
-    const main = [];
-    const side = [];
-    const maybe = [];
+      let text = '';
+      const cmdr = [];
+      const main = [];
+      const side = [];
+      const maybe = [];
 
-    function formatLine(c) {
-      const modSuffix = c.modifier === 'Foil' ? ' *F*' : (c.modifier === 'Etched' ? ' *E*' : '');
-      if (c.setId && c.collectorNumber) {
-        return `${c.targetQuantity} ${c.name} (${c.setId.toUpperCase()}) ${c.collectorNumber}${modSuffix}`;
+      function formatLine(c) {
+        const modSuffix = c.modifier === 'Foil' ? ' *F*' : (c.modifier === 'Etched' ? ' *E*' : '');
+        if (c.setId && c.collectorNumber) {
+          return `${c.targetQuantity} ${c.name} (${c.setId.toUpperCase()}) ${c.collectorNumber}${modSuffix}`;
+        }
+        return `${c.targetQuantity} ${c.name}${modSuffix}`;
       }
-      return `${c.targetQuantity} ${c.name}${modSuffix}`;
-    }
 
-    function pushToBoard(c) {
-      const line = formatLine(c);
-      const b = c.toBoard || c.board;
-      if (c.isCommander || b === 'Commander') cmdr.push(line);
-      else if (b === 'Sideboard') side.push(line);
-      else if (b === 'Maybeboard') maybe.push(line);
-      else main.push(line);
-    }
+      function pushToBoard(c) {
+        const line = formatLine(c);
+        const b = c.toBoard || c.board;
+        if (c.isCommander || b === 'Commander') cmdr.push(line);
+        else if (b === 'Sideboard') side.push(line);
+        else if (b === 'Maybeboard') maybe.push(line);
+        else main.push(line);
+      }
 
-    for (const c of added) pushToBoard(c);
-    for (const c of modified) {
-      if (c.targetQuantity > 0) pushToBoard(c);
-    }
+      for (const c of added) pushToBoard(c);
+      for (const c of modified) {
+        if (c.targetQuantity > 0) pushToBoard(c);
+      }
 
-    if (cmdr.length) text += '# Commander\n' + cmdr.join('\n') + '\n\n';
-    if (main.length) text += '# Mainboard\n' + main.join('\n') + '\n\n';
-    if (side.length) text += '# Sideboard\n' + side.join('\n') + '\n\n';
-    if (maybe.length) text += '# Maybeboard\n' + maybe.join('\n') + '\n\n';
+      if (cmdr.length) text += '# Commander\n' + cmdr.join('\n') + '\n\n';
+      if (main.length) text += '# Mainboard\n' + main.join('\n') + '\n\n';
+      if (side.length) text += '# Sideboard\n' + side.join('\n') + '\n\n';
+      if (maybe.length) text += '# Maybeboard\n' + maybe.join('\n') + '\n\n';
 
-    await navigator.clipboard.writeText(text.trim());
-    showToast('Copied Mass Edit text to clipboard!');
-  });
+      await navigator.clipboard.writeText(text.trim());
+      showToast('Copied Mass Edit text to clipboard!');
+    });
+  }
 
   // -----------------------------------------------------------
   // Direct Sync Execution
   // -----------------------------------------------------------
 
-  applySyncBtn.addEventListener('click', async () => {
-    if (!state.comparison) return;
+  if (applySyncBtn) {
+    applySyncBtn.addEventListener('click', async () => {
+      if (!state.comparison) return;
 
-    if (!state.auth.authenticated || !state.auth.token) {
-      showToast('Please log into Archidekt first.', false);
-      updateAuthDialogUI();
-      authDialog.showModal();
-      return;
-    }
-
-    const { added, removed, modified } = state.comparison.changes;
-    const selected = [...added, ...removed, ...modified].filter(i => i.selected !== false);
-
-    if (selected.length === 0) {
-      showToast('No changes selected to sync.', false);
-      return;
-    }
-
-    const confirmed = confirm(`Apply ${selected.length} card changes directly to Archidekt?`);
-    if (!confirmed) return;
-
-    setSyncLoading(true);
-
-    try {
-      await executeSync(state.comparison.archidekt.id, selected, state.auth.token);
-      showToast('Sync completed successfully!');
-
-      // Check if active tab is on this Archidekt deck, and refresh it!
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab && tab.url && tab.url.includes(`/decks/${state.comparison.archidekt.id}`)) {
-        await chrome.tabs.reload(tab.id);
+      if (!state.auth.authenticated || !state.auth.token) {
+        showToast('Please log into Archidekt first.', false);
+        updateAuthDialogUI();
+        authDialog.showModal();
+        return;
       }
 
-      // Re-compare
-      await triggerComparison();
-    } catch (err) {
-      console.error(err);
-      showToast(`Sync failed: ${err.message}`, false);
-    } finally {
-      setSyncLoading(false);
-    }
-  });
+      const { added, removed, modified } = state.comparison.changes;
+      const selected = [...added, ...removed, ...modified].filter(i => i.selected !== false);
+
+      if (selected.length === 0) {
+        showToast('No changes selected to sync.', false);
+        return;
+      }
+
+      const confirmed = confirm(`Apply ${selected.length} card changes directly to Archidekt?`);
+      if (!confirmed) return;
+
+      setSyncLoading(true);
+
+      try {
+        await executeSync(state.comparison.archidekt.id, selected, state.auth.token);
+        showToast('Sync completed successfully!');
+
+        // Check if active tab is on this Archidekt deck, and refresh it!
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab && tab.url && tab.url.includes(`/decks/${state.comparison.archidekt.id}`)) {
+          await chrome.tabs.reload(tab.id);
+        }
+
+        // Re-compare
+        await triggerComparison();
+      } catch (err) {
+        console.error(err);
+        showToast(`Sync failed: ${err.message}`, false);
+      } finally {
+        setSyncLoading(false);
+      }
+    });
+  }
 
   function generateUuid() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -2380,23 +2418,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   // -----------------------------------------------------------
 
   setupDialogs();
+  setupSortControl();
   setupSavedPairsAccordion();
 
+  // 1. Immediately load and render existing deck pairs
+  try {
+    await loadPairings();
+  } catch (err) {
+    console.error('Failed to load pairings:', err);
+  }
+
+  // 2. Automatically detect Archidekt session from browser cookies
   try {
     await checkAuthSession();
   } catch (err) {
     console.warn('Auth check failed:', err);
   }
 
+  // 3. Check active tab for open deck
   try {
     await detectActiveTabDeck();
   } catch (err) {
     console.warn('Detect active tab deck failed:', err);
-  }
-
-  try {
-    await loadPairings();
-  } catch (err) {
-    console.error('Failed to load pairings:', err);
   }
 });
