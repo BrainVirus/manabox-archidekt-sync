@@ -366,20 +366,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     {
       id: "pair-1790441846508",
       name: "Commander Deck A",
+      commanderName: "Sample Commander A",
+      commanderImage: "",
       manaboxUrl: "https://manabox.app/decks/sample-deck-1",
-      archidektUrl: "2345678"
+      archidektUrl: "2345678",
+      format: "Commander"
     },
     {
       id: "pair-1790441781407",
       name: "Commander Deck B",
+      commanderName: "Sample Commander B",
+      commanderImage: "",
       manaboxUrl: "https://manabox.app/decks/sample-deck-2",
-      archidektUrl: "3456789"
+      archidektUrl: "3456789",
+      format: "Commander"
     },
     {
       id: "pair-1790437997377",
       name: "Commander Deck C",
+      commanderName: "Sample Commander C",
+      commanderImage: "",
       manaboxUrl: "https://manabox.app/decks/sample-deck-3",
-      archidektUrl: "1234567"
+      archidektUrl: "1234567",
+      format: "Commander"
     }
   ];
 
@@ -412,6 +421,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     // If still empty (e.g. storage glitch or profile reset), restore user pairs
     if (!pairings.length) {
       pairings = [...DEFAULT_PAIRS_FALLBACK];
+    } else {
+      // Auto-enrich existing saved pairings with commander data from fallback defaults if missing
+      pairings.forEach(p => {
+        const match = DEFAULT_PAIRS_FALLBACK.find(f =>
+          f.id === p.id ||
+          (f.archidektUrl && normalizeArchidektDeckId(f.archidektUrl) === normalizeArchidektDeckId(p.archidektUrl)) ||
+          (f.manaboxUrl && normalizeManaBoxUrl(f.manaboxUrl) === normalizeManaBoxUrl(p.manaboxUrl))
+        );
+        if (match) {
+          if (!p.commanderName && match.commanderName) p.commanderName = match.commanderName;
+          if (!p.commanderImage && match.commanderImage) p.commanderImage = match.commanderImage;
+          if (!p.format && match.format) p.format = match.format;
+        }
+      });
     }
 
     state.pairings = pairings;
@@ -540,17 +563,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       card.setAttribute('title', `Click to compare "${p.name}"`);
 
       const archidektId = normalizeArchidektDeckId(p.archidektUrl) || p.archidektUrl;
-      const subtitle = `${p.format || 'Commander'} • ID: ${escapeHtml(archidektId)}`;
+      const avatarHtml = p.commanderImage
+        ? `<img class="deck-card-avatar" src="${escapeHtml(p.commanderImage)}" alt="${escapeHtml(p.commanderName || p.name)}" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';" /><span class="deck-card-icon-fallback" style="display:none;">⚔️</span>`
+        : `<span class="deck-card-icon">⚔️</span>`;
+
+      const subtitleHtml = p.commanderName
+        ? `<span class="cmdr-icon">👑</span><span class="cmdr-name" title="${escapeHtml(p.commanderName)}">${escapeHtml(p.commanderName)}</span>`
+        : `<span>${escapeHtml(p.format || 'Deck')} • #${escapeHtml(archidektId)}</span>`;
 
       card.innerHTML = `
         <div class="deck-card-top">
           <div class="deck-card-info">
-            <span class="deck-card-icon">⚔️</span>
+            ${avatarHtml}
             <div style="min-width: 0;">
               <div class="deck-card-title-row">
                 <span class="deck-card-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
               </div>
-              <span class="deck-card-sub" title="${subtitle}">${subtitle}</span>
+              <div class="deck-card-sub" title="${escapeHtml(p.commanderName || ((p.format || 'Deck') + ' • #' + archidektId))}">${subtitleHtml}</div>
             </div>
           </div>
           <div class="deck-card-links">
@@ -740,6 +769,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         name,
         manaboxUrl: pendingSaveContext.mbUrl,
         archidektUrl: pendingSaveContext.adUrl,
+        commanderName: state.comparison ? (state.comparison.manabox?.commanderName || state.comparison.archidekt?.commanderName || '') : '',
+        commanderImage: state.comparison ? (state.comparison.manabox?.commanderImage || state.comparison.archidekt?.commanderImage || '') : '',
         createdAt: Date.now()
       };
 
@@ -771,6 +802,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       existing.name = name;
       existing.manaboxUrl = pendingSaveContext.mbUrl;
       existing.archidektUrl = pendingSaveContext.adUrl;
+      if (state.comparison) {
+        if (!existing.commanderName && (state.comparison.manabox?.commanderName || state.comparison.archidekt?.commanderName)) {
+          existing.commanderName = state.comparison.manabox?.commanderName || state.comparison.archidekt?.commanderName;
+        }
+        if (!existing.commanderImage && (state.comparison.manabox?.commanderImage || state.comparison.archidekt?.commanderImage)) {
+          existing.commanderImage = state.comparison.manabox?.commanderImage || state.comparison.archidekt?.commanderImage;
+        }
+      }
 
       await persistPairings();
 
@@ -800,6 +839,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         name,
         manaboxUrl: pendingSaveContext.mbUrl,
         archidektUrl: pendingSaveContext.adUrl,
+        commanderName: state.comparison ? (state.comparison.manabox?.commanderName || state.comparison.archidekt?.commanderName || '') : '',
+        commanderImage: state.comparison ? (state.comparison.manabox?.commanderImage || state.comparison.archidekt?.commanderImage || '') : '',
         createdAt: Date.now()
       };
 
@@ -1062,6 +1103,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         pair.manaboxUrl = mbUrl;
         pair.archidektUrl = adUrl;
 
+        if (prevMb !== mbUrl || prevAd !== adUrl) {
+          const normMb = normalizeManaBoxUrl(mbUrl);
+          const normAd = normalizeArchidektDeckId(adUrl);
+          if (state.comparison &&
+              normalizeManaBoxUrl(state.comparison.manabox?.url) === normMb &&
+              normalizeArchidektDeckId(state.comparison.archidekt?.id) === normAd) {
+            pair.commanderName = state.comparison.manabox?.commanderName || state.comparison.archidekt?.commanderName || '';
+            pair.commanderImage = state.comparison.manabox?.commanderImage || state.comparison.archidekt?.commanderImage || '';
+          } else {
+            pair.commanderName = '';
+            pair.commanderImage = '';
+          }
+        }
+
         // If currently loaded in diff inputs, update them
         if (manaboxInput && manaboxInput.value === prevMb) {
           manaboxInput.value = mbUrl;
@@ -1079,6 +1134,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           name,
           manaboxUrl: mbUrl,
           archidektUrl: adUrl,
+          commanderName: state.comparison ? (state.comparison.manabox?.commanderName || state.comparison.archidekt?.commanderName || '') : '',
+          commanderImage: state.comparison ? (state.comparison.manabox?.commanderImage || state.comparison.archidekt?.commanderImage || '') : '',
           createdAt: Date.now()
         };
         state.pairings.unshift(pair);
@@ -1329,6 +1386,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         const adDeck = await fetchArchidektDeck(pair.archidektUrl);
         const comparison = compareDecks(mbDeck, adDeck);
         pair.comparison = comparison;
+
+        const cmdrName = mbDeck.commanderName || adDeck.commanderName;
+        const cmdrImage = mbDeck.commanderImage || adDeck.commanderImage;
+        if (cmdrName || cmdrImage) {
+          if (cmdrName) pair.commanderName = cmdrName;
+          if (cmdrImage) pair.commanderImage = cmdrImage;
+          const orig = state.pairings.find(p => p.id === pair.id);
+          if (orig) {
+            let updated = false;
+            if (cmdrName && orig.commanderName !== cmdrName) {
+              orig.commanderName = cmdrName;
+              updated = true;
+            }
+            if (cmdrImage && orig.commanderImage !== cmdrImage) {
+              orig.commanderImage = cmdrImage;
+              updated = true;
+            }
+            if (updated) {
+              await persistPairings();
+              renderPairings();
+            }
+          }
+        }
 
         if (comparison.stats.totalChanges === 0) {
           pair.status = 'in_sync';
@@ -1614,11 +1694,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       };
     });
 
+    const commanderCard = cards.find(c => c.isCommander);
+    let commanderName = commanderCard ? commanderCard.name : '';
+    let commanderImage = '';
+    if (commanderCard && commanderCard.imageUrl) {
+      commanderImage = commanderCard.imageUrl
+        .replace('/normal/', '/art_crop/')
+        .replace('/small/', '/art_crop/')
+        .replace('/large/', '/art_crop/');
+    } else if (rawDeck.imageUrl) {
+      commanderImage = rawDeck.imageUrl
+        .replace('/normal/', '/art_crop/')
+        .replace('/small/', '/art_crop/')
+        .replace('/large/', '/art_crop/');
+    }
+
     return {
       url,
       name: rawDeck.name || 'ManaBox Deck',
       format: rawDeck.format || 'Commander',
       totalCards: cards.reduce((sum, c) => sum + c.quantity, 0),
+      commanderName,
+      commanderImage,
       cards
     };
   }
@@ -1667,11 +1764,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       };
     });
 
+    const commanderCard = cards.find(c => c.isCommander);
+    let commanderName = commanderCard ? commanderCard.name : '';
+    let commanderImage = '';
+    if (commanderCard && commanderCard.imageUrl) {
+      commanderImage = commanderCard.imageUrl.replace('/small/', '/art_crop/');
+    } else if (data.featured) {
+      commanderImage = data.featured;
+    }
+
     return {
       id: String(data.id || deckId),
       name: data.name || 'Archidekt Deck',
       owner: data.owner ? data.owner.username : 'Unknown',
+      format: data.deckFormat ? (typeof data.deckFormat === 'object' ? data.deckFormat.name : data.deckFormat) : 'Commander',
       totalCards: cards.reduce((sum, c) => sum + c.quantity, 0),
+      commanderName,
+      commanderImage,
       cards
     };
   }
@@ -2026,6 +2135,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       const adDeck = await fetchArchidektDeck(adVal);
       const comparison = compareDecks(mbDeck, adDeck);
       state.comparison = comparison;
+
+      // Auto-enrich matching pairing with commander details
+      const normMb = normalizeManaBoxUrl(mbVal);
+      const normAd = normalizeArchidektDeckId(adVal);
+      const matchedPair = state.pairings.find(p =>
+        (normMb && normalizeManaBoxUrl(p.manaboxUrl) === normMb) ||
+        (normAd && normalizeArchidektDeckId(p.archidektUrl) === normAd)
+      );
+      if (matchedPair) {
+        const cmdrName = mbDeck.commanderName || adDeck.commanderName;
+        const cmdrImage = mbDeck.commanderImage || adDeck.commanderImage;
+        let changed = false;
+        if (cmdrName && matchedPair.commanderName !== cmdrName) {
+          matchedPair.commanderName = cmdrName;
+          changed = true;
+        }
+        if (cmdrImage && matchedPair.commanderImage !== cmdrImage) {
+          matchedPair.commanderImage = cmdrImage;
+          changed = true;
+        }
+        if (changed) {
+          await persistPairings();
+          renderPairings();
+        }
+      }
 
       renderDiff();
       diffView.classList.add('active');
