@@ -12,7 +12,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     auth: {
       authenticated: false,
       token: '',
-      username: ''
+      username: '',
+      expired: false
     }
   };
 
@@ -22,6 +23,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const authText = document.getElementById('authText');
   const authDialog = document.getElementById('authDialog');
   const authStatusBox = document.getElementById('authStatusBox');
+  const authHelpText = document.getElementById('authHelpText');
+  const authLoginLink = document.getElementById('authLoginLink');
   const refreshAuthBtn = document.getElementById('refreshAuthBtn');
 
   const useTabDeckBtn = document.getElementById('useTabDeckBtn');
@@ -88,6 +91,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const bulkSelectAllBtn = document.getElementById('bulkSelectAllBtn');
   const bulkDeselectBtn = document.getElementById('bulkDeselectBtn');
   const bulkStatusBanner = document.getElementById('bulkStatusBanner');
+  const bulkAuthAlert = document.getElementById('bulkAuthAlert');
+  const bulkOpenLoginBtn = document.getElementById('bulkOpenLoginBtn');
+  const bulkRecheckRetryBtn = document.getElementById('bulkRecheckRetryBtn');
   const bulkPairsList = document.getElementById('bulkPairsList');
   const bulkSyncSelectedBtn = document.getElementById('bulkSyncSelectedBtn');
   const bulkSyncIcon = document.getElementById('bulkSyncIcon');
@@ -186,11 +192,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  function parseJwtPayload(token) {
+    if (!token || typeof token !== 'string') return null;
+    try {
+      const parts = token.split('.');
+      if (parts.length < 2) return null;
+      const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const pad = base64.length % 4;
+      const padded = pad ? base64 + '='.repeat(4 - pad) : base64;
+      const decoded = atob(padded);
+      return JSON.parse(decoded);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function isTokenExpired(token) {
+    const payload = parseJwtPayload(token);
+    if (!payload || !payload.exp) return false;
+    // Buffer of 10s to avoid boundary errors
+    return (payload.exp * 1000) <= (Date.now() + 10000);
+  }
+
   if (refreshAuthBtn) {
     refreshAuthBtn.addEventListener('click', async () => {
       await checkAuthSession();
       updateAuthDialogUI();
-      showToast('Session re-checked!');
+      if (state.auth.authenticated) {
+        showToast(`✅ Session active: @${state.auth.username}`);
+      } else if (state.auth.expired) {
+        showToast('⚠️ Session is expired. Please log into Archidekt.', false);
+      } else {
+        showToast('No active Archidekt session found.', false);
+      }
     });
   }
 
@@ -208,18 +242,29 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
 
       if (jwtCookie && jwtCookie.value) {
-        state.auth.authenticated = true;
-        state.auth.token = jwtCookie.value;
-        state.auth.username = userCookie ? decodeURIComponent(userCookie.value) : 'Logged In';
+        const expired = isTokenExpired(jwtCookie.value);
+        if (expired) {
+          state.auth.authenticated = false;
+          state.auth.expired = true;
+          state.auth.token = '';
+          state.auth.username = userCookie ? decodeURIComponent(userCookie.value) : 'User';
+        } else {
+          state.auth.authenticated = true;
+          state.auth.expired = false;
+          state.auth.token = jwtCookie.value;
+          state.auth.username = userCookie ? decodeURIComponent(userCookie.value) : 'Logged In';
+        }
       } else {
         // Fallback: check chrome.storage
         const { storedToken, storedUsername } = await chrome.storage.local.get(['storedToken', 'storedUsername']);
-        if (storedToken) {
+        if (storedToken && !isTokenExpired(storedToken)) {
           state.auth.authenticated = true;
+          state.auth.expired = false;
           state.auth.token = storedToken;
           state.auth.username = storedUsername || 'Archidekt User';
         } else {
           state.auth.authenticated = false;
+          state.auth.expired = false;
           state.auth.token = '';
           state.auth.username = '';
         }
@@ -234,9 +279,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (state.auth.authenticated) {
       authDot.className = 'auth-dot connected';
       authText.textContent = `@${state.auth.username}`;
+      if (authBtn) authBtn.setAttribute('title', `Archidekt session active: @${state.auth.username}. Click to manage.`);
+    } else if (state.auth.expired) {
+      authDot.className = 'auth-dot expired';
+      authText.textContent = 'Session Expired';
+      if (authBtn) authBtn.setAttribute('title', 'Archidekt session expired. Click to log in.');
     } else {
       authDot.className = 'auth-dot';
       authText.textContent = 'Not Connected';
+      if (authBtn) authBtn.setAttribute('title', 'Archidekt session not connected. Click to log in.');
     }
   }
 
@@ -246,11 +297,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         <span style="color: var(--success); font-weight: 700;">✅ Active Archidekt Session Detected</span><br>
         <span>Logged in as <strong>@${escapeHtml(state.auth.username)}</strong> via browser cookie.</span>
       `;
+      if (authHelpText) authHelpText.textContent = 'Your session is active and ready to sync deck changes.';
+    } else if (state.auth.expired) {
+      authStatusBox.innerHTML = `
+        <span style="color: #f87171; font-weight: 700;">⚠️ Archidekt Session Expired</span><br>
+        <span>Your login cookie has expired. Please log into Archidekt in another tab, then click <strong>Re-check Browser Session</strong> below.</span>
+      `;
+      if (authHelpText) authHelpText.textContent = 'Archidekt sessions expire periodically. Logging in again will restore instant syncing.';
     } else {
       authStatusBox.innerHTML = `
         <span style="color: var(--warning); font-weight: 700;">⚠️ No Active Session Found</span><br>
         <span>Please log into your account on Archidekt.com in this browser.</span>
       `;
+      if (authHelpText) authHelpText.textContent = 'If you are logged into Archidekt in Chrome, the extension detects your session automatically.';
     }
   }
 
@@ -1288,11 +1347,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
+      await checkAuthSession();
+      renderAuthBadge();
+      updateAuthDialogUI();
+
       bulkState.pairs = getSortedPairings().map(p => ({
         ...p,
         status: 'idle',
         comparison: null,
         error: null,
+        isAuthExpired: false,
         selected: false
       }));
 
@@ -1331,6 +1395,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function updateBulkSummaryBanner() {
+    const hasExpiredPairs = bulkState.pairs.some(p => p.isAuthExpired) || state.auth.expired;
+    if (bulkAuthAlert) {
+      bulkAuthAlert.style.display = hasExpiredPairs ? 'block' : 'none';
+    }
+
     if (bulkState.isChecking || bulkState.isSyncing) return;
 
     const checkedPairs = bulkState.pairs.filter(p => p.status !== 'idle' && p.status !== 'checking');
@@ -1341,15 +1410,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const changedCount = bulkState.pairs.filter(p => p.status === 'has_changes').length;
     const inSyncCount = bulkState.pairs.filter(p => p.status === 'in_sync' || p.status === 'synced').length;
-    const errorCount = bulkState.pairs.filter(p => p.status === 'error').length;
+    const expiredCount = bulkState.pairs.filter(p => p.isAuthExpired).length;
+    const errorCount = bulkState.pairs.filter(p => p.status === 'error' && !p.isAuthExpired).length;
 
-    if (changedCount === 0 && errorCount === 0) {
+    if (changedCount === 0 && expiredCount === 0 && errorCount === 0) {
       bulkStatusBanner.innerHTML = '<span style="color: var(--success); font-weight: 600;">✅ All saved decks are completely in sync with ManaBox!</span>';
     } else {
       let msg = `<span>Scanned ${checkedPairs.length} deck(s): `;
       const parts = [];
       if (changedCount > 0) parts.push(`<strong style="color: var(--warning);">${changedCount} have changes</strong>`);
       if (inSyncCount > 0) parts.push(`<span style="color: var(--success);">${inSyncCount} in sync</span>`);
+      if (expiredCount > 0) parts.push(`<strong style="color: #f87171;">${expiredCount} session expired</strong>`);
       if (errorCount > 0) parts.push(`<span style="color: var(--danger);">${errorCount} errored</span>`);
       msg += parts.join(', ') + '.</span>';
       bulkStatusBanner.innerHTML = msg;
@@ -1372,7 +1443,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     bulkState.pairs.forEach((pair) => {
       const card = document.createElement('div');
-      card.className = `bulk-pair-card status-${pair.status}`;
+      const isCardExpired = Boolean(pair.isAuthExpired);
+      card.className = `bulk-pair-card status-${pair.status}${isCardExpired ? ' status-auth-expired' : ''}`;
 
       let badgeHtml = '';
       if (pair.status === 'idle') {
@@ -1393,7 +1465,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         badgeHtml = `<span class="bulk-pair-badge has_changes">⚠️ ${changeSummary}</span>`;
       } else if (pair.status === 'error') {
-        badgeHtml = `<span class="bulk-pair-badge error" title="${escapeHtml(pair.error || 'Error')}">❌ Error</span>`;
+        if (pair.isAuthExpired) {
+          badgeHtml = `<span class="bulk-pair-badge auth-expired" title="${escapeHtml(pair.error || 'Archidekt session expired')}">⚠️ Session Expired</span>`;
+        } else {
+          badgeHtml = `<span class="bulk-pair-badge error" title="${escapeHtml(pair.error || 'Error')}">❌ Error</span>`;
+        }
       } else if (pair.status === 'syncing') {
         badgeHtml = `<span class="bulk-pair-badge syncing"><span class="spinner" style="width: 10px; height: 10px; border-width: 1.5px;"></span> Syncing...</span>`;
       } else if (pair.status === 'synced') {
@@ -1408,7 +1484,11 @@ document.addEventListener('DOMContentLoaded', async () => {
           <span>AD: <strong>${pair.comparison.archidekt.totalCards}</strong> cards</span>
         `;
       } else if (pair.error) {
-        subHtml = `<span style="color: var(--danger); font-size: 0.68rem;">${escapeHtml(pair.error)}</span>`;
+        if (pair.isAuthExpired) {
+          subHtml = `<span style="color: #fca5a5; font-size: 0.68rem; font-weight: 600;">⚠️ Archidekt session expired. Log in to fix.</span>`;
+        } else {
+          subHtml = `<span style="color: var(--danger); font-size: 0.68rem;">${escapeHtml(pair.error)}</span>`;
+        }
       } else {
         subHtml = `<span style="color: var(--text-subtle);">${escapeHtml(pair.manaboxUrl.split('/').pop())}</span>`;
       }
@@ -1434,7 +1514,14 @@ document.addEventListener('DOMContentLoaded', async () => {
           <button class="btn btn-outline btn-sm view-diff-btn" style="font-size: 0.68rem; padding: 0.2rem 0.45rem;" title="View detailed card diff in main panel">
             👁️ Inspect
           </button>
-          ${pair.status === 'has_changes' ? `
+          ${pair.isAuthExpired ? `
+            <button class="btn btn-outline btn-sm pair-fix-auth-btn" style="font-size: 0.68rem; padding: 0.2rem 0.45rem; color: #fca5a5; border-color: rgba(239, 68, 68, 0.4);" title="Open Archidekt login page in a new tab">
+              🔑 Fix Login
+            </button>
+            <button class="btn btn-success btn-sm pair-retry-btn" style="font-size: 0.68rem; padding: 0.2rem 0.45rem;" title="Re-check session & retry syncing this deck">
+              🔄 Retry
+            </button>
+          ` : pair.status === 'has_changes' ? `
             <button class="btn btn-success btn-sm single-sync-btn" style="font-size: 0.68rem; padding: 0.2rem 0.45rem;" title="Sync only this deck">
               🚀 Sync
             </button>
@@ -1468,6 +1555,33 @@ document.addEventListener('DOMContentLoaded', async () => {
       const singleSyncBtn = card.querySelector('.single-sync-btn');
       if (singleSyncBtn) {
         singleSyncBtn.addEventListener('click', async () => {
+          await syncSinglePairInBulk(pair);
+        });
+      }
+
+      const pairFixAuthBtn = card.querySelector('.pair-fix-auth-btn');
+      if (pairFixAuthBtn) {
+        pairFixAuthBtn.addEventListener('click', () => {
+          chrome.tabs.create({ url: 'https://archidekt.com/login' });
+        });
+      }
+
+      const pairRetryBtn = card.querySelector('.pair-retry-btn');
+      if (pairRetryBtn) {
+        pairRetryBtn.addEventListener('click', async () => {
+          await checkAuthSession();
+          renderAuthBadge();
+          updateAuthDialogUI();
+          if (!state.auth.authenticated || !state.auth.token) {
+            showToast('⚠️ Archidekt session still expired. Please log into Archidekt first.', false);
+            authDialog.showModal();
+            return;
+          }
+          pair.isAuthExpired = false;
+          pair.status = 'has_changes';
+          pair.error = null;
+          renderBulkPairsList();
+          updateBulkSummaryBanner();
           await syncSinglePairInBulk(pair);
         });
       }
@@ -1550,8 +1664,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function syncSinglePairInBulk(pair) {
-    if (!state.auth.authenticated || !state.auth.token) {
-      showToast('Please log into Archidekt first.', false);
+    if (!state.auth.authenticated || !state.auth.token || state.auth.expired) {
+      showToast('⚠️ Archidekt session expired. Please log in first.', false);
       updateAuthDialogUI();
       authDialog.showModal();
       return;
@@ -1575,6 +1689,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       await executeSync(pair.comparison.archidekt.id, selectedChanges, state.auth.token);
       pair.status = 'synced';
       pair.selected = false;
+      pair.isAuthExpired = false;
+      pair.error = null;
       renderBulkPairsList();
       updateBulkSummaryBanner();
       updateBulkSyncButtonState();
@@ -1588,8 +1704,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       pair.status = 'error';
       pair.error = err.message;
+      pair.isAuthExpired = Boolean(err.isAuthExpired);
+      if (err.isAuthExpired) {
+        state.auth.authenticated = false;
+        state.auth.expired = true;
+        state.auth.token = '';
+        renderAuthBadge();
+        updateAuthDialogUI();
+        if (bulkAuthAlert) bulkAuthAlert.style.display = 'block';
+        showToast('⚠️ Archidekt session expired. Log in to fix.', false);
+      } else {
+        showToast(`Failed syncing "${pair.name}": ${err.message}`, false);
+      }
       renderBulkPairsList();
-      showToast(`Failed syncing "${pair.name}": ${err.message}`, false);
+      updateBulkSummaryBanner();
+      updateBulkSyncButtonState();
     }
   }
 
@@ -1600,8 +1729,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function runBulkSync() {
-    if (!state.auth.authenticated || !state.auth.token) {
-      showToast('Please log into Archidekt first.', false);
+    if (!state.auth.authenticated || !state.auth.token || state.auth.expired) {
+      showToast('⚠️ Archidekt session expired. Please log in first.', false);
       updateAuthDialogUI();
       authDialog.showModal();
       return;
@@ -1643,12 +1772,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         await executeSync(pair.comparison.archidekt.id, selectedChanges, state.auth.token);
         pair.status = 'synced';
         pair.selected = false;
+        pair.isAuthExpired = false;
+        pair.error = null;
         successCount++;
         affectedDeckIds.push(pair.comparison.archidekt.id);
       } catch (err) {
         console.error(`Sync error on "${pair.name}":`, err);
         pair.status = 'error';
         pair.error = err.message;
+        pair.isAuthExpired = Boolean(err.isAuthExpired);
+        if (err.isAuthExpired) {
+          state.auth.authenticated = false;
+          state.auth.expired = true;
+          state.auth.token = '';
+          renderAuthBadge();
+          updateAuthDialogUI();
+          if (bulkAuthAlert) bulkAuthAlert.style.display = 'block';
+          renderBulkPairsList();
+          showToast('⚠️ Archidekt session expired. Log in to restore sync.', false);
+          break;
+        }
       }
 
       renderBulkPairsList();
@@ -1662,7 +1805,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateBulkSummaryBanner();
     updateBulkSyncButtonState();
 
-    showToast(`🎉 Bulk sync finished: ${successCount} of ${toSync.length} decks updated!`);
+    if (successCount > 0) {
+      showToast(`🎉 Bulk sync finished: ${successCount} of ${toSync.length} decks updated!`);
+    }
 
     // Reload active tab if on one of these decks
     try {
@@ -1675,6 +1820,50 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (e) {
       console.warn(e);
     }
+  }
+
+  if (bulkOpenLoginBtn) {
+    bulkOpenLoginBtn.addEventListener('click', () => {
+      chrome.tabs.create({ url: 'https://archidekt.com/login' });
+    });
+  }
+
+  if (bulkRecheckRetryBtn) {
+    bulkRecheckRetryBtn.addEventListener('click', async () => {
+      const originalText = bulkRecheckRetryBtn.textContent;
+      bulkRecheckRetryBtn.disabled = true;
+      bulkRecheckRetryBtn.textContent = 'Checking...';
+      try {
+        await checkAuthSession();
+        renderAuthBadge();
+        updateAuthDialogUI();
+        if (!state.auth.authenticated || !state.auth.token) {
+          showToast('⚠️ Archidekt session is still expired. Please log into Archidekt first.', false);
+          authDialog.showModal();
+          return;
+        }
+
+        showToast(`✅ Session active (@${state.auth.username})! Resuming sync...`);
+        if (bulkAuthAlert) bulkAuthAlert.style.display = 'none';
+
+        bulkState.pairs.forEach(p => {
+          if (p.isAuthExpired) {
+            p.isAuthExpired = false;
+            p.status = 'has_changes';
+            p.error = null;
+            p.selected = true;
+          }
+        });
+        renderBulkPairsList();
+        updateBulkSummaryBanner();
+        updateBulkSyncButtonState();
+
+        await runBulkSync();
+      } finally {
+        bulkRecheckRetryBtn.disabled = false;
+        bulkRecheckRetryBtn.textContent = originalText;
+      }
+    });
   }
 
   // -----------------------------------------------------------
@@ -2572,7 +2761,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         await triggerComparison();
       } catch (err) {
         console.error(err);
-        showToast(`Sync failed: ${err.message}`, false);
+        if (err.isAuthExpired) {
+          state.auth.authenticated = false;
+          state.auth.expired = true;
+          state.auth.token = '';
+          renderAuthBadge();
+          updateAuthDialogUI();
+          showToast('⚠️ Archidekt session expired. Please log in to sync.', false);
+          authDialog.showModal();
+        } else {
+          showToast(`Sync failed: ${err.message}`, false);
+        }
       } finally {
         setSyncLoading(false);
       }
@@ -2585,6 +2784,46 @@ document.addEventListener('DOMContentLoaded', async () => {
       const v = c === 'x' ? r : (r & 0x3) | 0x8;
       return v.toString(16);
     });
+  }
+
+  function parseArchidektApiError(errText, status) {
+    let isAuthExpired = status === 401;
+    let friendlyMessage = '';
+
+    const textLower = (errText || '').toLowerCase();
+    if (
+      status === 401 ||
+      textLower.includes('token_not_valid') ||
+      textLower.includes('token is expired') ||
+      textLower.includes('given token not valid') ||
+      textLower.includes('credentials were not provided') ||
+      textLower.includes('signature has expired') ||
+      textLower.includes('not valid for any token type')
+    ) {
+      isAuthExpired = true;
+      friendlyMessage = 'Archidekt login session expired. Please log into Archidekt in your browser.';
+    }
+
+    if (!friendlyMessage && errText) {
+      try {
+        const json = JSON.parse(errText);
+        if (json.detail) {
+          friendlyMessage = typeof json.detail === 'string' ? json.detail : JSON.stringify(json.detail);
+        } else if (json.message) {
+          friendlyMessage = json.message;
+        } else if (json.messages && Array.isArray(json.messages) && json.messages[0]?.message) {
+          friendlyMessage = json.messages[0].message;
+        }
+      } catch (e) {
+        if (errText.length < 140) friendlyMessage = errText;
+      }
+    }
+
+    if (!friendlyMessage) {
+      friendlyMessage = isAuthExpired ? 'Archidekt session expired.' : `Archidekt returned error ${status || ''}`.trim();
+    }
+
+    return { isAuthExpired, friendlyMessage };
   }
 
   async function executeSync(deckId, selectedChanges, token) {
@@ -2807,7 +3046,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (!patchResp.ok) {
       const errText = await patchResp.text();
-      throw new Error(`Archidekt API error: ${errText}`);
+      const { isAuthExpired, friendlyMessage } = parseArchidektApiError(errText, patchResp.status);
+      const err = new Error(friendlyMessage);
+      err.isAuthExpired = isAuthExpired;
+      err.status = patchResp.status;
+      err.rawResponse = errText;
+      throw err;
     }
 
     return await patchResp.json();

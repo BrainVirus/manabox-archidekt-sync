@@ -219,15 +219,15 @@
     <div id="authStatusBox" style="padding: 0.5rem; background: var(--bg-surface); border-radius: 4px; margin-bottom: 0.75rem; font-size: 0.75rem;">
       Checking cookies...
     </div>
-    <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+    <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem;" id="authHelpText">
       If you are logged into Archidekt in Chrome, the extension detects your session automatically.
     </p>
     <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-      <a href="https://archidekt.com/login" target="_blank" class="btn btn-outline btn-sm btn-block">
-        Open Archidekt.com to Log In
+      <a href="https://archidekt.com/login" target="_blank" class="btn btn-primary btn-sm btn-block" id="authLoginLink">
+        🔑 Open Archidekt.com to Log In ↗
       </a>
-      <button id="refreshAuthBtn" class="btn btn-primary btn-sm btn-block">
-        Re-check Browser Session
+      <button id="refreshAuthBtn" class="btn btn-outline btn-sm btn-block">
+        🔄 Re-check Browser Session
       </button>
     </div>
   </dialog>
@@ -260,6 +260,25 @@
     <!-- Status / Progress Banner -->
     <div id="bulkStatusBanner" class="bulk-status-banner">
       Click "Check All" to scan all saved decks for updates.
+    </div>
+
+    <!-- Actionable Auth Error Alert (shown when session expires) -->
+    <div id="bulkAuthAlert" class="bulk-auth-alert" style="display: none;">
+      <div class="bulk-auth-alert-title">
+        <span>⚠️</span>
+        <span>Archidekt Session Expired</span>
+      </div>
+      <div class="bulk-auth-alert-desc">
+        Your browser's Archidekt session timed out. Log in to renew your credentials, then click <strong>Re-check &amp; Retry</strong> to finish syncing your decks.
+      </div>
+      <div class="bulk-auth-alert-actions">
+        <button type="button" id="bulkOpenLoginBtn" class="btn btn-primary btn-sm" style="font-size: 0.72rem; padding: 0.3rem 0.65rem;">
+          🔑 Open Archidekt Login ↗
+        </button>
+        <button type="button" id="bulkRecheckRetryBtn" class="btn btn-success btn-sm" style="font-size: 0.72rem; padding: 0.3rem 0.65rem;">
+          🔄 Re-check &amp; Retry Sync
+        </button>
+      </div>
     </div>
 
     <!-- Scrollable Pairs List -->

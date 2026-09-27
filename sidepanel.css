@@ -138,6 +138,17 @@ body {
   box-shadow: 0 0 6px var(--success);
 }
 
+.auth-dot.expired {
+  background: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.7);
+  animation: pulse-expired 1.8s infinite ease-in-out;
+}
+
+@keyframes pulse-expired {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(1.2); }
+}
+
 /* Main Container */
 .main-container {
   padding: 0.85rem;
@@ -1186,6 +1197,39 @@ dialog.bulk-modal[open] {
   min-height: 32px;
 }
 
+/* Bulk Auth Expired Alert Banner */
+.bulk-auth-alert {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.75rem;
+  margin-bottom: 0.65rem;
+  animation: fadeIn 0.2s ease;
+}
+
+.bulk-auth-alert-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: #fca5a5;
+  margin-bottom: 0.25rem;
+}
+
+.bulk-auth-alert-desc {
+  font-size: 0.72rem;
+  color: #e2e8f0;
+  line-height: 1.35;
+  margin-bottom: 0.5rem;
+}
+
+.bulk-auth-alert-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
 .bulk-pairs-list {
   display: flex;
   flex-direction: column;
@@ -1216,6 +1260,11 @@ dialog.bulk-modal[open] {
 
 .bulk-pair-card.status-error {
   border-left: 3px solid var(--danger);
+}
+
+.bulk-pair-card.status-auth-expired {
+  border-left: 3px solid #ef4444;
+  background: rgba(239, 68, 68, 0.05);
 }
 
 .bulk-pair-card.status-synced {
@@ -1285,6 +1334,12 @@ dialog.bulk-modal[open] {
 .bulk-pair-badge.error {
   background: var(--danger-bg);
   color: var(--danger);
+}
+
+.bulk-pair-badge.auth-expired {
+  background: rgba(239, 68, 68, 0.22);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.45);
 }
 
 .bulk-pair-badge.syncing {
