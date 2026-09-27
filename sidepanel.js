@@ -244,7 +244,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (state.auth.authenticated) {
       authStatusBox.innerHTML = `
         <span style="color: var(--success); font-weight: 700;">✅ Active Archidekt Session Detected</span><br>
-        <span>Logged in as <strong>@${state.auth.username}</strong> via browser cookie.</span>
+        <span>Logged in as <strong>@${escapeHtml(state.auth.username)}</strong> via browser cookie.</span>
       `;
     } else {
       authStatusBox.innerHTML = `
@@ -363,35 +363,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Pairings
   // -----------------------------------------------------------
 
-  const DEFAULT_PAIRS_FALLBACK = [
-    {
-      id: "pair-1790441846508",
-      name: "Commander Deck A",
-      commanderName: "Sample Commander A",
-      commanderImage: "",
-      manaboxUrl: "https://manabox.app/decks/sample-deck-1",
-      archidektUrl: "2345678",
-      format: "Commander"
-    },
-    {
-      id: "pair-1790441781407",
-      name: "Commander Deck B",
-      commanderName: "Sample Commander B",
-      commanderImage: "",
-      manaboxUrl: "https://manabox.app/decks/sample-deck-2",
-      archidektUrl: "3456789",
-      format: "Commander"
-    },
-    {
-      id: "pair-1790437997377",
-      name: "Commander Deck C",
-      commanderName: "Sample Commander C",
-      commanderImage: "",
-      manaboxUrl: "https://manabox.app/decks/sample-deck-3",
-      archidektUrl: "1234567",
-      format: "Commander"
-    }
-  ];
+  const DEFAULT_PAIRS_FALLBACK = [];
 
   async function loadPairings() {
     let pairings = [];
@@ -417,25 +389,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       } catch (e) {
         console.warn('Could not read pairings from localStorage backup:', e);
       }
-    }
-
-    // If still empty (e.g. storage glitch or profile reset), restore user pairs
-    if (!pairings.length) {
-      pairings = [...DEFAULT_PAIRS_FALLBACK];
-    } else {
-      // Auto-enrich existing saved pairings with commander data from fallback defaults if missing
-      pairings.forEach(p => {
-        const match = DEFAULT_PAIRS_FALLBACK.find(f =>
-          f.id === p.id ||
-          (f.archidektUrl && normalizeArchidektDeckId(f.archidektUrl) === normalizeArchidektDeckId(p.archidektUrl)) ||
-          (f.manaboxUrl && normalizeManaBoxUrl(f.manaboxUrl) === normalizeManaBoxUrl(p.manaboxUrl))
-        );
-        if (match) {
-          if (!p.commanderName && match.commanderName) p.commanderName = match.commanderName;
-          if (!p.commanderImage && match.commanderImage) p.commanderImage = match.commanderImage;
-          if (!p.format && match.format) p.format = match.format;
-        }
-      });
     }
 
     state.pairings = pairings;
@@ -714,7 +667,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const archidektId = normalizeArchidektDeckId(p.archidektUrl) || p.archidektUrl;
       const avatarHtml = p.commanderImage
-        ? `<img class="deck-card-avatar" src="${escapeHtml(p.commanderImage)}" alt="${escapeHtml(p.commanderName || p.name)}" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';" /><span class="deck-card-icon-fallback" style="display:none;">⚔️</span>`
+        ? `<img class="deck-card-avatar" src="${escapeHtml(p.commanderImage)}" alt="${escapeHtml(p.commanderName || p.name)}" /><span class="deck-card-icon-fallback" style="display:none;">⚔️</span>`
         : `<span class="deck-card-icon">⚔️</span>`;
 
       const subtitleHtml = p.commanderName
@@ -751,6 +704,15 @@ document.addEventListener('DOMContentLoaded', async () => {
           </div>
         </div>
       `;
+
+      const avatarImg = card.querySelector('.deck-card-avatar');
+      if (avatarImg) {
+        avatarImg.addEventListener('error', () => {
+          avatarImg.style.display = 'none';
+          const fallback = avatarImg.nextElementSibling;
+          if (fallback) fallback.style.display = 'inline-flex';
+        });
+      }
 
       card.addEventListener('click', () => {
         loadAndComparePair(p);
@@ -2426,28 +2388,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       let metaHtml = '';
       if (item.action === 'modify' && item.changeType === 'board') {
-        const fromFoil = item.fromModifier && item.fromModifier !== 'Normal' ? ` <span class="foil-sparkle">✨${item.fromModifier}</span>` : '';
-        const toFoil = item.toModifier && item.toModifier !== 'Normal' ? ` <span class="foil-sparkle">✨${item.toModifier}</span>` : '';
+        const fromFoil = item.fromModifier && item.fromModifier !== 'Normal' ? ` <span class="foil-sparkle">✨${escapeHtml(item.fromModifier)}</span>` : '';
+        const toFoil = item.toModifier && item.toModifier !== 'Normal' ? ` <span class="foil-sparkle">✨${escapeHtml(item.toModifier)}</span>` : '';
         const printingInfo = item.isVersionChange || item.isFinishChange
-          ? ` • [${(item.fromSet || '').toUpperCase()}]${fromFoil} ➔ [${(item.toSet || '').toUpperCase()}]${toFoil}`
+          ? ` • [${escapeHtml((item.fromSet || '').toUpperCase())}]${fromFoil} ➔ [${escapeHtml((item.toSet || '').toUpperCase())}]${toFoil}`
           : '';
         metaHtml = `
-          <span>${item.fromBoard || 'Mainboard'}</span>
+          <span>${escapeHtml(item.fromBoard || 'Mainboard')}</span>
           <span class="version-arrow">➔</span>
-          <span style="color: #38bdf8; font-weight: 700;">${item.toBoard}</span>
+          <span style="color: #38bdf8; font-weight: 700;">${escapeHtml(item.toBoard || '')}</span>
           ${printingInfo}
         `;
       } else if (item.action === 'modify' && (item.changeType === 'version' || item.changeType === 'finish')) {
-        const fromFoil = item.fromModifier && item.fromModifier !== 'Normal' ? ` <span class="foil-sparkle">✨${item.fromModifier}</span>` : '';
-        const toFoil = item.toModifier && item.toModifier !== 'Normal' ? ` <span class="foil-sparkle">✨${item.toModifier}</span>` : '';
+        const fromFoil = item.fromModifier && item.fromModifier !== 'Normal' ? ` <span class="foil-sparkle">✨${escapeHtml(item.fromModifier)}</span>` : '';
+        const toFoil = item.toModifier && item.toModifier !== 'Normal' ? ` <span class="foil-sparkle">✨${escapeHtml(item.toModifier)}</span>` : '';
         metaHtml = `
-          <span>[${(item.fromSet || '').toUpperCase()}] #${item.fromCollector || '?'}${fromFoil}</span>
+          <span>[${escapeHtml((item.fromSet || '').toUpperCase())}] #${escapeHtml(item.fromCollector || '?')}${fromFoil}</span>
           <span class="version-arrow">➔</span>
-          <span style="color: var(--text-main); font-weight: 600;">[${(item.toSet || '').toUpperCase()}] #${item.toCollector || '?'}${toFoil}</span>
+          <span style="color: var(--text-main); font-weight: 600;">[${escapeHtml((item.toSet || '').toUpperCase())}] #${escapeHtml(item.toCollector || '?')}${toFoil}</span>
         `;
       } else {
-        const foilTag = item.modifier && item.modifier !== 'Normal' ? ` <span class="foil-sparkle">✨${item.modifier}</span>` : '';
-        metaHtml = `${item.setId ? `[${item.setId.toUpperCase()}]` : ''} ${item.collectorNumber ? `#${item.collectorNumber}` : ''}${foilTag}`;
+        const foilTag = item.modifier && item.modifier !== 'Normal' ? ` <span class="foil-sparkle">✨${escapeHtml(item.modifier)}</span>` : '';
+        metaHtml = `${item.setId ? `[${escapeHtml(item.setId.toUpperCase())}]` : ''} ${item.collectorNumber ? `#${escapeHtml(item.collectorNumber)}` : ''}${foilTag}`;
       }
 
       card.innerHTML = `
@@ -2460,7 +2422,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           />
         </div>
         <div>
-          <img src="${thumbUrl}" class="card-img" alt="${escapeHtml(item.name)}" loading="lazy" onerror="this.style.display='none'" />
+          <img src="${thumbUrl}" class="card-img" alt="${escapeHtml(item.name)}" loading="lazy" />
         </div>
         <div class="card-info">
           <span class="card-name-text" title="${escapeHtml(item.name)}">
@@ -2474,6 +2436,13 @@ document.addEventListener('DOMContentLoaded', async () => {
           <span class="badge-tag ${tagClass}">${tagLabel}</span>
         </div>
       `;
+
+      const cardImg = card.querySelector('.card-img');
+      if (cardImg) {
+        cardImg.addEventListener('error', () => {
+          cardImg.style.display = 'none';
+        });
+      }
 
       const checkbox = card.querySelector('input[type="checkbox"]');
       if (checkbox && !isSync) {

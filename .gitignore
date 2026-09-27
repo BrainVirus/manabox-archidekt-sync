@@ -16,3 +16,9 @@ yarn-error.log*
 node_modules/
 dist/
 tmp/
+
+# Secrets & Keys
+.env
+.env.*
+*.pem
+*.key
