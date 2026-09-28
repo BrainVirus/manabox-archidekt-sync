@@ -54,8 +54,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const editUseTabDeckAdBtn = document.getElementById('editUseTabDeckAdBtn');
   const editDeletePairBtn = document.getElementById('editDeletePairBtn');
   const confirmSaveEditPairBtn = document.getElementById('confirmSaveEditPairBtn');
-  const firstRunBanner = document.getElementById('firstRunBanner');
-  const dismissFirstRunBtn = document.getElementById('dismissFirstRunBtn');
   const bulkHeroCount = document.getElementById('bulkHeroCount');
   const compareBtn = document.getElementById('compareBtn');
   const compareIcon = document.getElementById('compareIcon');
@@ -3217,28 +3215,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     await detectActiveTabDeck();
   } catch (err) {
     console.warn('Detect active tab deck failed:', err);
-  }
-
-  // 4. First-run toolbar pinning onboarding banner
-  if (firstRunBanner) {
-    try {
-      const { hasSeenWelcomePin } = await chrome.storage.local.get('hasSeenWelcomePin');
-      if (!hasSeenWelcomePin) {
-        firstRunBanner.style.display = 'flex';
-      }
-    } catch (e) {
-      console.warn('Could not read welcome state:', e);
-    }
-
-    if (dismissFirstRunBtn) {
-      dismissFirstRunBtn.addEventListener('click', async () => {
-        firstRunBanner.style.display = 'none';
-        try {
-          await chrome.storage.local.set({ hasSeenWelcomePin: true });
-        } catch (e) {
-          console.warn('Could not persist welcome state:', e);
-        }
-      });
-    }
   }
 });
