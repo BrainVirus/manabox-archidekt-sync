@@ -1362,3 +1362,65 @@ dialog.bulk-modal[open] {
 .bulk-footer {
   margin-top: 0.25rem;
 }
+
+/* First-Run Welcome & Pinning Banner */
+.first-run-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.16) 0%, rgba(139, 92, 246, 0.08) 100%);
+  border: 1px solid rgba(129, 140, 248, 0.4);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 0.85rem;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  animation: fadeInDown 0.3s ease-out;
+}
+
+.first-run-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.first-run-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.first-run-text {
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: var(--text-main);
+}
+
+.first-run-text strong {
+  display: block;
+  font-size: 0.82rem;
+  color: #a5b4fc;
+  margin-bottom: 0.2rem;
+}
+
+.first-run-text p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.puzzle-badge {
+  display: inline-block;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  padding: 0.05rem 0.3rem;
+  font-size: 0.75rem;
+}
+
+.first-run-dismiss-btn {
+  align-self: flex-end;
+  font-size: 0.72rem;
+  padding: 0.25rem 0.65rem;
+  font-weight: 600;
+}
+
