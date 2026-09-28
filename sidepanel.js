@@ -3188,6 +3188,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // Legal & Disclaimer Dialog
+  const legalDisclaimerBtn = document.getElementById('legalDisclaimerBtn');
+  const disclaimerDialog = document.getElementById('disclaimerDialog');
+  if (legalDisclaimerBtn && disclaimerDialog) {
+    legalDisclaimerBtn.addEventListener('click', () => {
+      disclaimerDialog.showModal();
+    });
+  }
+
   // -----------------------------------------------------------
   // Setup & Initial Loads
   // -----------------------------------------------------------

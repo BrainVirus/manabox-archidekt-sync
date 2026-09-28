@@ -133,3 +133,14 @@ Yes! Any Chromium-based browser supports Chrome extensions:
 
 The steps are identical.
 </details>
+
+---
+
+## ⚖️ Disclaimer & Legal
+
+This extension is an independent open-source project created for the Magic: The Gathering community.
+
+- **Non-Affiliation:** This project is not affiliated with, authorized by, maintained by, or endorsed by **ManaBox** or **Archidekt**. All product and company names are trademarks™ or registered® trademarks of their respective holders. Use of them does not imply any affiliation with or endorsement by them.
+- **Wizards of the Coast IP:** Portions of this software (such as card names, text, and artwork retrieved via Scryfall) are unofficial Fan Content permitted under the Wizards of the Coast Fan Content Policy. Not approved or endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast LLC. &copy; Wizards of the Coast LLC.
+- **Warranty & Liability:** This software is provided "as is", without warranty of any kind, express or implied. Always verify your deck changes.
+

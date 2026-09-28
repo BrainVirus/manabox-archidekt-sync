@@ -210,6 +210,18 @@
 
   </main>
 
+  <!-- App Footer with Legal Disclaimer -->
+  <footer class="app-footer">
+    <p class="app-footer-note">
+      Unofficial fan tool • Not affiliated with ManaBox, Archidekt, or WotC
+    </p>
+    <div class="app-footer-links">
+      <button id="legalDisclaimerBtn" type="button" class="btn-link app-footer-link">Legal &amp; Disclaimers</button>
+      <span class="app-footer-sep">•</span>
+      <a href="https://github.com/BrainVirus/manabox-archidekt-sync" target="_blank" rel="noopener noreferrer" class="app-footer-link">GitHub ↗</a>
+    </div>
+  </footer>
+
   <!-- Auth Dialog -->
   <dialog id="authDialog" closedby="any">
     <div class="dialog-header">
@@ -574,6 +586,34 @@
              💾 Save Changes
            </button>
          </div>
+       </div>
+     </div>
+   </dialog>
+
+   <!-- Legal & Disclaimer Dialog -->
+   <dialog id="disclaimerDialog" closedby="any" style="width: 92%; max-width: 440px; padding: 1.1rem; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85); color: var(--text-main);">
+     <div class="dialog-header">
+       <div style="display: flex; align-items: center; gap: 0.5rem;">
+         <span style="font-size: 1.15rem;">⚖️</span>
+         <div>
+           <h3 style="font-size: 0.95rem; font-weight: 700; margin: 0;">Legal &amp; Disclaimers</h3>
+           <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0;">Unofficial Magic: The Gathering fan project</p>
+         </div>
+       </div>
+       <button class="close-btn" data-close-dialog title="Close">&times;</button>
+     </div>
+     <div style="margin-top: 0.85rem; font-size: 0.75rem; color: var(--text-muted); line-height: 1.5; display: flex; flex-direction: column; gap: 0.75rem;">
+       <div style="background: var(--bg-surface); padding: 0.65rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+         <strong style="color: var(--text-main); display: block; margin-bottom: 0.2rem;">Non-Affiliation</strong>
+         This extension is an independent open-source project and is not affiliated with, authorized by, maintained by, or endorsed by <strong>ManaBox</strong> or <strong>Archidekt</strong>. All product and company names are trademarks™ or registered® trademarks of their respective holders. Use of them does not imply any affiliation with or endorsement by them.
+       </div>
+       <div style="background: var(--bg-surface); padding: 0.65rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+         <strong style="color: var(--text-main); display: block; margin-bottom: 0.2rem;">Wizards of the Coast IP</strong>
+         Portions of this software (such as card names, text, and artwork retrieved via Scryfall) are unofficial Fan Content permitted under the Wizards of the Coast Fan Content Policy. Not approved or endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast LLC. &copy; Wizards of the Coast LLC.
+       </div>
+       <div style="background: var(--bg-surface); padding: 0.65rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+         <strong style="color: var(--text-main); display: block; margin-bottom: 0.2rem;">Warranty &amp; Data Disclaimer</strong>
+         This software is provided "as is", without warranty of any kind, express or implied. Always verify your deck changes before syncing.
        </div>
      </div>
    </dialog>
