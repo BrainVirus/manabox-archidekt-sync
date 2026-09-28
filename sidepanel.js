@@ -359,11 +359,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     const normalized = normalizeManaBoxUrl(raw);
-    const url = normalized || (raw.startsWith('http') ? raw : `https://${raw}`);
+    if (!normalized) {
+      showToast('Please enter a valid ManaBox deck URL or ID', false);
+      return;
+    }
     try {
-      await chrome.tabs.create({ url });
+      await chrome.tabs.create({ url: normalized });
     } catch (e) {
-      window.open(url, '_blank');
+      window.open(normalized, '_blank');
     }
   }
 
@@ -725,8 +728,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       card.setAttribute('title', `Click to compare "${p.name}"`);
 
       const archidektId = normalizeArchidektDeckId(p.archidektUrl) || p.archidektUrl;
-      const avatarHtml = p.commanderImage
-        ? `<img class="deck-card-avatar" src="${escapeHtml(p.commanderImage)}" alt="${escapeHtml(p.commanderName || p.name)}" /><span class="deck-card-icon-fallback" style="display:none;">⚔️</span>`
+      const isSafeImage = typeof p.commanderImage === 'string' && /^https?:\/\//i.test(p.commanderImage.trim());
+      const avatarHtml = isSafeImage
+        ? `<img class="deck-card-avatar" src="${escapeHtml(p.commanderImage.trim())}" alt="${escapeHtml(p.commanderName || p.name)}" /><span class="deck-card-icon-fallback" style="display:none;">⚔️</span>`
         : `<span class="deck-card-icon">⚔️</span>`;
 
       const subtitleHtml = p.commanderName
@@ -2611,7 +2615,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           />
         </div>
         <div>
-          <img src="${thumbUrl}" class="card-img" alt="${escapeHtml(item.name)}" loading="lazy" />
+          <img src="${escapeHtml(thumbUrl)}" class="card-img" alt="${escapeHtml(item.name)}" loading="lazy" />
         </div>
         <div class="card-info">
           <span class="card-name-text" title="${escapeHtml(item.name)}">
@@ -3035,6 +3039,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
 
+    if (mutations.length === 0) {
+      return { success: true, count: 0, cards: [] };
+    }
+
     const patchResp = await fetch(`https://archidekt.com/api/decks/${deckId}/modifyCards/v2/`, {
       method: 'PATCH',
       headers: {
@@ -3135,9 +3143,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!Array.isArray(parsed)) throw new Error('Root JSON must be an array of decks');
         const validPairs = parsed.filter(p => p && p.name && (p.manaboxUrl || p.archidektUrl)).map(p => ({
           id: p.id || ('pair-' + Date.now() + Math.random().toString(36).slice(2, 6)),
-          name: p.name,
-          manaboxUrl: p.manaboxUrl || '',
-          archidektUrl: p.archidektUrl || '',
+          name: String(p.name).trim(),
+          manaboxUrl: String(p.manaboxUrl || '').trim(),
+          archidektUrl: String(p.archidektUrl || '').trim(),
+          commanderName: p.commanderName ? String(p.commanderName).trim() : undefined,
+          commanderImage: p.commanderImage && /^https?:\/\//i.test(String(p.commanderImage).trim()) ? String(p.commanderImage).trim() : undefined,
+          format: p.format ? String(p.format).trim() : undefined,
           createdAt: typeof p.createdAt === 'number' ? p.createdAt : undefined
         }));
         if (!validPairs.length) {
@@ -3145,14 +3156,32 @@ document.addEventListener('DOMContentLoaded', async () => {
           return;
         }
 
-        const existingIds = new Set(state.pairings.map(p => p.id));
-        const toAdd = validPairs.filter(p => !existingIds.has(p.id));
-        state.pairings = [...toAdd, ...state.pairings];
+        const existingMap = new Map(state.pairings.map(p => [p.id, p]));
+        let addedCount = 0;
+        let updatedCount = 0;
+
+        for (const pair of validPairs) {
+          if (existingMap.has(pair.id)) {
+            Object.assign(existingMap.get(pair.id), pair);
+            updatedCount++;
+          } else {
+            existingMap.set(pair.id, pair);
+            addedCount++;
+          }
+        }
+
+        state.pairings = Array.from(existingMap.values());
         await persistPairings();
 
         renderPairings();
         backupDialog.close();
-        showToast(`Successfully imported ${validPairs.length} deck pairs!`);
+        if (addedCount > 0 && updatedCount > 0) {
+          showToast(`Imported ${addedCount} new deck(s) and updated ${updatedCount} existing.`);
+        } else if (addedCount > 0) {
+          showToast(`Successfully imported ${addedCount} deck pair${addedCount > 1 ? 's' : ''}!`);
+        } else {
+          showToast(`Updated ${updatedCount} existing deck pair${updatedCount > 1 ? 's' : ''}!`);
+        }
       } catch (err) {
         showToast(`Import error: ${err.message}`, false);
       }

@@ -18,8 +18,7 @@
   ],
   "host_permissions": [
     "https://archidekt.com/*",
-    "https://manabox.app/*",
-    "https://*.scryfall.io/*"
+    "https://manabox.app/*"
   ],
   "icons": {
     "16": "icons/icon-16.png",
