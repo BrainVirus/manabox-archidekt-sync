@@ -3,7 +3,14 @@
   "name": "ManaBox ➔ Archidekt Deck Sync",
   "version": "1.0.0",
   "description": "Compare and sync Magic: The Gathering deck changes from ManaBox directly to Archidekt.",
-  "action": {},
+  "action": {
+    "default_title": "ManaBox ➔ Archidekt Deck Sync",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
   "background": {
     "service_worker": "service-worker.js"
   },
